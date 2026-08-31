@@ -124,6 +124,15 @@ Each feature module owns its behavior and data access.
 - Use optimistic/pessimistic concurrency control where competing writes can violate invariants.
 - For reliable database-plus-message workflows, use an outbox or another proven delivery pattern; do not pretend two independent systems share a transaction.
 
+### Additive catalog and external-source data
+
+- Keep each website parser behind the additive source port under the additives feature; do not put selectors, HTTP fetching, or source-specific toxicity labels in controllers or domain code.
+- Preserve source-specific evidence in `AdditiveSourceRecord` and expose only the consolidated `Additive` record to ingredient analysis. New websites must add an adapter rather than columns tied to a vendor.
+- Normalize E-numbers to the canonical form `E` plus digits and optional uppercase suffix (for example `E202` or `E100II`).
+- Consolidated toxicity uses only `LOW`, `MEDIUM`, `HIGH`, and `VERY_HIGH`. Make each source-label mapping explicit and covered by tests.
+- Pregnancy suitability is tri-state. Missing or ambiguous evidence is always `UNKNOWN`, never `SUITABLE`; retain a human-readable rationale and require editorial/clinical review of automatically inferred guidance.
+- Treat imported prose as `REVIEW_REQUIRED`. Preserve provenance and content hashes, review source permissions, and editorially rewrite and verify text before publishing it to end users.
+
 ## Configuration and secrets
 
 - Access environment variables through one typed configuration layer, not scattered `process.env` reads.

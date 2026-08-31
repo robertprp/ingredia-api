@@ -1,10 +1,7 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { PrismaService } from '../prisma/prisma.service';
-import { dash, sentinel } from '@better-auth/infra';
-import { organization, username } from 'better-auth/plugins';
 import { Resend } from 'resend';
-import { expo } from '@better-auth/expo';
 import { authUserAdditionalFields } from './auth-user-additional-fields';
 
 export const createAuth = (prisma: PrismaService) =>

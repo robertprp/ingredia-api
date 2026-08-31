@@ -6,3 +6,319 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model User {
+  id                          String       @id
+  name                        String
+  email                       String       @unique
+  emailVerified               Boolean      @default(false)
+  image                       String?
+  createdAt                   DateTime     @default(now())
+  updatedAt                   DateTime     @updatedAt
+  username                    String?      @unique
+  displayUsername             String?
+  verificationStatus          String       @default("NOT_STARTED")
+  identityVerifiedAt          DateTime?
+  verificationStatusUpdatedAt DateTime?
+  verificationStatusEventId   String?
+  accounts                    Account[]
+  invitations                 Invitation[]
+  members                     Member[]
+  sessions                    Session[]
+
+  @@map("user")
+}
+
+model Session {
+  id                   String   @id
+  expiresAt            DateTime
+  token                String   @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  ipAddress            String?
+  userAgent            String?
+  userId               String
+  activeOrganizationId String?
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Organization {
+  id          String       @id
+  name        String
+  slug        String       @unique
+  logo        String?
+  createdAt   DateTime
+  metadata    String?
+  invitations Invitation[]
+  members     Member[]
+
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  userId         String
+  role           String       @default("member")
+  createdAt      DateTime
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  email          String
+  role           String?
+  status         String       @default("pending")
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitation")
+}
+
+model additive {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  e_number               String                   @unique
+  name                   String
+  description            String
+  food_uses              String
+  health_impact          String
+  low_dose_effects       String?
+  high_dose_effects      String?
+  toxicity_level         ToxicityLevel
+  pregnancy_suitability  PregnancySuitability     @default(UNKNOWN)
+  pregnancy_rationale    String
+  curation_status        CurationStatus           @default(REVIEW_REQUIRED)
+  content_updated_at     DateTime                 @default(now())
+  created_at             DateTime                 @default(now())
+  updated_at             DateTime
+  additive_alias         additive_alias[]
+  additive_source_record additive_source_record[]
+
+  @@index([pregnancy_suitability])
+  @@index([toxicity_level])
+}
+
+model additive_alias {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  additive_id     String   @db.Uuid
+  name            String
+  normalized_name String
+  created_at      DateTime @default(now())
+  additive        additive @relation(fields: [additive_id], references: [id], onDelete: Cascade)
+
+  @@unique([additive_id, normalized_name])
+  @@index([normalized_name])
+}
+
+model additive_ingestion_run {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_id          String             @db.Uuid
+  status             IngestionStatus    @default(RUNNING)
+  discovered         Int                @default(0)
+  imported           Int                @default(0)
+  failed             Int                @default(0)
+  error_summary      String?
+  started_at         DateTime           @default(now())
+  completed_at       DateTime?
+  information_source information_source @relation(fields: [source_id], references: [id])
+
+  @@index([source_id, started_at])
+}
+
+model additive_source_record {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  additive_id           String               @db.Uuid
+  source_id             String               @db.Uuid
+  source_url            String
+  source_name           String
+  description           String
+  food_uses             String
+  health_impact         String
+  low_dose_effects      String?
+  high_dose_effects     String?
+  toxicity_level        ToxicityLevel
+  source_classification String?
+  pregnancy_suitability PregnancySuitability @default(UNKNOWN)
+  pregnancy_rationale   String
+  content_hash          String
+  fetched_at            DateTime
+  last_seen_at          DateTime
+  created_at            DateTime             @default(now())
+  updated_at            DateTime
+  additive              additive             @relation(fields: [additive_id], references: [id], onDelete: Cascade)
+  information_source    information_source   @relation(fields: [source_id], references: [id])
+
+  @@unique([additive_id, source_id])
+  @@index([source_id, last_seen_at])
+}
+
+model information_source {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key                    String                   @unique
+  name                   String
+  base_url               String
+  created_at             DateTime                 @default(now())
+  updated_at             DateTime
+  additive_ingestion_run additive_ingestion_run[]
+  additive_source_record additive_source_record[]
+}
+
+model catalog_retailer {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key        String           @unique
+  name       String
+  created_at DateTime         @default(now())
+  updated_at DateTime         @updatedAt
+  markets    catalog_market[]
+}
+
+model catalog_market {
+  id             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  retailer_id    String                  @db.Uuid
+  country_code   CatalogCountry
+  locale         String
+  currency       String                  @db.Char(3)
+  base_url       String
+  created_at     DateTime                @default(now())
+  updated_at     DateTime                @updatedAt
+  retailer       catalog_retailer        @relation(fields: [retailer_id], references: [id], onDelete: Cascade)
+  products       catalog_product[]
+  ingestion_runs catalog_ingestion_run[]
+
+  @@unique([retailer_id, country_code])
+  @@index([country_code])
+}
+
+model catalog_product {
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  market_id           String                  @db.Uuid
+  external_id         String
+  name                String
+  brand               String?
+  description         String?
+  ingredients_text    String?
+  categories          String[]
+  price_minor         Int?
+  regular_price_minor Int?
+  currency            String                  @db.Char(3)
+  availability        String?
+  source_url          String
+  source_payload      Json
+  content_hash        String
+  fetched_at          DateTime
+  last_seen_at        DateTime
+  is_active           Boolean                 @default(true)
+  created_at          DateTime                @default(now())
+  updated_at          DateTime                @updatedAt
+  market              catalog_market          @relation(fields: [market_id], references: [id], onDelete: Cascade)
+  images              catalog_product_image[]
+
+  @@unique([market_id, external_id])
+  @@index([market_id, is_active])
+  @@index([brand])
+}
+
+model catalog_product_image {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id  String          @db.Uuid
+  source_url  String
+  position    Int             @default(0)
+  is_primary  Boolean         @default(false)
+  created_at  DateTime        @default(now())
+  updated_at  DateTime        @updatedAt
+  product     catalog_product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@unique([product_id, source_url])
+  @@index([product_id, position])
+}
+
+model catalog_ingestion_run {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  market_id     String          @db.Uuid
+  status        IngestionStatus @default(RUNNING)
+  discovered    Int             @default(0)
+  imported      Int             @default(0)
+  failed        Int             @default(0)
+  error_summary String?
+  started_at    DateTime        @default(now())
+  completed_at  DateTime?
+  market        catalog_market  @relation(fields: [market_id], references: [id])
+
+  @@index([market_id, started_at])
+}
+
+enum CatalogCountry {
+  ES
+  FR
+}
+
+enum CurationStatus {
+  AUTO_GENERATED
+  REVIEW_REQUIRED
+  REVIEWED
+}
+
+enum IngestionStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum PregnancySuitability {
+  SUITABLE
+  NOT_SUITABLE
+  UNKNOWN
+}
+
+enum ToxicityLevel {
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}

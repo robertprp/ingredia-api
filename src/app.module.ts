@@ -6,6 +6,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
 import { PrismaService } from './common/prisma/prisma.service';
 import { createAuth } from './common/auth/auth.instance';
 import { HealthModule } from './modules/health/health.module';
+import { AdditivesModule } from './modules/additives/additives.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { HealthModule } from './modules/health/health.module';
     }),
     PrismaModule,
     HealthModule,
+    AdditivesModule,
     AuthModule.forRootAsync({
       imports: [PrismaModule],
       inject: [PrismaService],

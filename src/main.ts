@@ -1,11 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { json } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
   });
+
+  app.use('/additives', json({ limit: '16kb' }));
+  app.enableShutdownHooks();
 
   app.enableCors({
     origin: true,
@@ -13,10 +17,11 @@ async function bootstrap() {
   });
 
   const config = new DocumentBuilder()
-    .setTitle('Your app')
-    .setDescription('Your appj backend documentation')
+    .setTitle('Aditivos App API')
+    .setDescription('Ingredient scanning and food-additive catalog API')
     .setVersion('1.0')
-    .addTag('app')
+    .addTag('additives')
+    .addTag('catalog')
     .build();
 
   const documentFactory = () => SwaggerModule.createDocument(app, config);
