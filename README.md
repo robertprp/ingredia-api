@@ -141,6 +141,7 @@ in `.env.example`.
 | `RESEND_API_KEY`       | Required by the included email callbacks |
 | `GOOGLE_CLIENT_ID`     | Required if Google sign-in is enabled    |
 | `GOOGLE_CLIENT_SECRET` | Required if Google sign-in is enabled    |
+| `BILLING_SEED_USER_ID` | Optional user for a sandbox Plus seed    |
 
 Add variables for optional plugins only when those plugins are enabled. Validate
 all required variables at startup and do not use fallback secrets in deployed
@@ -148,11 +149,12 @@ environments.
 
 ## Configure Better Auth
 
-The runtime configuration is in
-`src/common/auth/auth.instance.ts`. The separate `auth.schema.ts` file exists so
-the Better Auth CLI can generate the matching Prisma models.
+The single Better Auth configuration is in
+`src/common/auth/auth.instance.ts`. The separate `auth.schema.ts` file is a thin
+CLI entry point that creates a Prisma client and calls the same `createAuth`
+factory used by NestJS.
 
-Keep both files aligned whenever you add or remove:
+Update only `src/common/auth/auth.instance.ts` whenever you add or remove:
 
 - plugins;
 - authentication providers;
@@ -274,6 +276,31 @@ The response reports matched additives, unmatched E-numbers, overall assessment
 assessment. `NOT_TOXIC` only means that every matched additive is currently
 classified as low toxicity; it is not a medical or regulatory safety claim.
 
+## Provider-neutral billing
+
+The first billing phase exposes these endpoints:
+
+- `GET /billing/plans` lists public plans and is anonymous;
+- `GET /billing/eligibility` returns the authenticated user's allowed purchase,
+  restore, and management actions for a client platform/distribution channel;
+- `GET /billing/subscription` returns the authenticated user's current provider
+  state and verified access period;
+- `GET /me/entitlements` projects provider-independent capabilities.
+
+The initial policy is fail-closed: Stripe is offered only to `WEB` builds using
+`WEB_DIRECT`, Apple only to `IOS`/`APP_STORE`, and Google Play only to
+`ANDROID`/`GOOGLE_PLAY`. Until pricing is approved, the seeded Plus plan has no
+price and reports `purchasable: false`.
+
+Seed plans after applying migrations:
+
+```bash
+pnpm db:seed
+```
+
+Set `BILLING_SEED_USER_ID` to an existing Better Auth user ID when a renewable
+sandbox Plus subscription is also needed for local testing.
+
 ## Project layout
 
 ```text
@@ -284,6 +311,7 @@ src/
   config/                  # Environment validation
   modules/
     additives/             # Catalog, source adapters, indexing, label analysis
+    billing/               # Plans, subscriptions, policy, and entitlements
     health/
   main.ts                  # Application bootstrap and Swagger
 prisma/

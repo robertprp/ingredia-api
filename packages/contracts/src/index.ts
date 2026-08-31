@@ -54,6 +54,45 @@ export enum SubscriptionProvider {
   GOOGLE_PLAY = 'GOOGLE_PLAY',
 }
 
+export enum BillingClientPlatform {
+  WEB = 'WEB',
+  IOS = 'IOS',
+  ANDROID = 'ANDROID',
+}
+
+export enum BillingDistributionChannel {
+  WEB_DIRECT = 'WEB_DIRECT',
+  APP_STORE = 'APP_STORE',
+  GOOGLE_PLAY = 'GOOGLE_PLAY',
+}
+
+export enum BillingPurchaseAction {
+  NONE = 'NONE',
+  STRIPE_CHECKOUT = 'STRIPE_CHECKOUT',
+  APP_STORE_PURCHASE = 'APP_STORE_PURCHASE',
+  GOOGLE_PLAY_PURCHASE = 'GOOGLE_PLAY_PURCHASE',
+}
+
+export enum BillingRestoreAction {
+  NONE = 'NONE',
+  APP_STORE_RESTORE = 'APP_STORE_RESTORE',
+  GOOGLE_PLAY_RESTORE = 'GOOGLE_PLAY_RESTORE',
+}
+
+export enum BillingManagementAction {
+  NONE = 'NONE',
+  STRIPE_PORTAL = 'STRIPE_PORTAL',
+  APP_STORE_SUBSCRIPTIONS = 'APP_STORE_SUBSCRIPTIONS',
+  GOOGLE_PLAY_SUBSCRIPTIONS = 'GOOGLE_PLAY_SUBSCRIPTIONS',
+  CONTACT_SUPPORT = 'CONTACT_SUPPORT',
+}
+
+export enum BillingEligibilityReason {
+  ELIGIBLE = 'ELIGIBLE',
+  CHANNEL_MISMATCH = 'CHANNEL_MISMATCH',
+  EXISTING_SUBSCRIPTION = 'EXISTING_SUBSCRIPTION',
+}
+
 export enum ImportJobStatus {
   QUEUED = 'QUEUED',
   RUNNING = 'RUNNING',
@@ -339,10 +378,11 @@ export interface ComparisonListItem {
 export interface BillingPlan {
   id: string;
   name: string;
-  localizedPrice: string;
+  localizedPrice: string | null;
   billingPeriod: 'MONTHLY' | 'YEARLY';
   trialDays: number;
   capabilities: string[];
+  purchasable: boolean;
 }
 
 export interface BillingPlansResponse {
@@ -354,6 +394,24 @@ export interface UserSubscriptionResponse {
   provider: SubscriptionProvider | null;
   planId: string | null;
   renewsAt: ISODateTime | null;
+  currentPeriodEndsAt: ISODateTime | null;
+  cancelAtPeriodEnd: boolean;
+}
+
+export interface BillingEligibilityQuery {
+  platform: BillingClientPlatform;
+  distributionChannel: BillingDistributionChannel;
+  storefront?: string;
+}
+
+export interface BillingEligibilityResponse {
+  policyVersion: string;
+  purchaseAllowed: boolean;
+  purchaseProvider: SubscriptionProvider | null;
+  purchaseAction: BillingPurchaseAction;
+  restoreAction: BillingRestoreAction;
+  managementAction: BillingManagementAction;
+  reason: BillingEligibilityReason;
 }
 
 export interface CreateCheckoutSessionRequest {
@@ -568,9 +626,10 @@ export const retryScanSchema: z.ZodType<RetryScanRequest> = z.object({
   requestedReason: z.string().trim().max(500).optional(),
 });
 
-export const reanalyseProductSchema: z.ZodType<ReanalyseProductRequest> = z.object({
-  useCurrentPreferences: z.boolean().optional(),
-});
+export const reanalyseProductSchema: z.ZodType<ReanalyseProductRequest> =
+  z.object({
+    useCurrentPreferences: z.boolean().optional(),
+  });
 
 export const listUserAnalysesSchema = z.object({
   ...cursorFields,
@@ -594,32 +653,47 @@ export const updateUserPreferencesSchema: z.ZodType<UpdateUserPreferencesRequest
     .object({
       pregnancyMode: z.boolean().optional(),
       riskAlerts: z.boolean().optional(),
-      locale: z.string().trim().regex(/^[a-z]{2}-[A-Z]{2}$/).optional(),
+      locale: z
+        .string()
+        .trim()
+        .regex(/^[a-z]{2}-[A-Z]{2}$/)
+        .optional(),
     })
-    .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
+    .refine(
+      (value) => Object.keys(value).length > 0,
+      'At least one field is required',
+    );
 
-export const createComparisonSchema: z.ZodType<CreateComparisonRequest> = z.object({
-  analysisIds: z.tuple([z.string().uuid(), z.string().uuid()]).refine(
-    ([left, right]) => left !== right,
-    'Analyses must be different',
-  ),
-});
+export const createComparisonSchema: z.ZodType<CreateComparisonRequest> =
+  z.object({
+    analysisIds: z
+      .tuple([z.string().uuid(), z.string().uuid()])
+      .refine(([left, right]) => left !== right, 'Analyses must be different'),
+  });
 
 export const updateUserProfileSchema: z.ZodType<UpdateUserProfileRequest> = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
-    locale: z.string().trim().regex(/^[a-z]{2}-[A-Z]{2}$/).optional(),
+    locale: z
+      .string()
+      .trim()
+      .regex(/^[a-z]{2}-[A-Z]{2}$/)
+      .optional(),
   })
-  .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
+  .refine(
+    (value) => Object.keys(value).length > 0,
+    'At least one field is required',
+  );
 
 export const registerDeviceSchema: z.ZodType<RegisterDeviceRequest> = z.object({
   token: z.string().trim().min(16).max(4096),
   platform: z.enum(['IOS', 'ANDROID', 'WEB']),
 });
 
-export const createDataExportSchema: z.ZodType<CreateDataExportRequest> = z.object({
-  format: z.literal('JSON'),
-});
+export const createDataExportSchema: z.ZodType<CreateDataExportRequest> =
+  z.object({
+    format: z.literal('JSON'),
+  });
 
 export const deleteAccountSchema: z.ZodType<DeleteAccountRequest> = z.object({
   confirmation: z.literal('DELETE'),
@@ -635,22 +709,42 @@ export const createCheckoutSessionSchema: z.ZodType<CreateCheckoutSessionRequest
 export const createBillingPortalSessionSchema: z.ZodType<CreateBillingPortalSessionRequest> =
   z.object({ returnUrl: z.url() });
 
+export const billingEligibilityQuerySchema: z.ZodType<BillingEligibilityQuery> =
+  z.object({
+    platform: z.nativeEnum(BillingClientPlatform),
+    distributionChannel: z.nativeEnum(BillingDistributionChannel),
+    storefront: z
+      .string()
+      .regex(/^[A-Z]{2}$/)
+      .optional(),
+  });
+
 export const verifyMobilePurchaseSchema: z.ZodType<VerifyMobilePurchaseRequest> =
   z.object({
-    provider: z.enum([SubscriptionProvider.APPLE, SubscriptionProvider.GOOGLE_PLAY]),
+    provider: z.enum([
+      SubscriptionProvider.APPLE,
+      SubscriptionProvider.GOOGLE_PLAY,
+    ]),
     productId: z.string().trim().min(1).max(200),
     transactionToken: z.string().trim().min(1).max(16_384),
   });
 
 export const restoreMobilePurchasesSchema: z.ZodType<RestoreMobilePurchasesRequest> =
   z.object({
-    provider: z.enum([SubscriptionProvider.APPLE, SubscriptionProvider.GOOGLE_PLAY]),
+    provider: z.enum([
+      SubscriptionProvider.APPLE,
+      SubscriptionProvider.GOOGLE_PLAY,
+    ]),
   });
 
 export const cursorPageSchema = z.object(cursorFields);
 
 export const createSourceSchema: z.ZodType<CreateSourceRequest> = z.object({
-  key: z.string().trim().regex(/^[a-z0-9.-]+$/).max(100),
+  key: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9.-]+$/)
+    .max(100),
   name: z.string().trim().min(1).max(120),
   baseUrl: z.url(),
   parserVersion: z.string().trim().min(1).max(80),
@@ -663,45 +757,55 @@ export const updateSourceSchema: z.ZodType<UpdateSourceRequest> = z
     enabled: z.boolean().optional(),
     parserVersion: z.string().trim().min(1).max(80).optional(),
   })
-  .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
+  .refine(
+    (value) => Object.keys(value).length > 0,
+    'At least one field is required',
+  );
 
-export const createImportJobSchema: z.ZodType<CreateImportJobRequest> = z.object({
-  sourceId: z.string().uuid(),
-  mode: z.enum(['FULL', 'INCREMENTAL']),
-  additiveCodes: z.array(additiveCodeSchema).max(500).optional(),
-});
+export const createImportJobSchema: z.ZodType<CreateImportJobRequest> =
+  z.object({
+    sourceId: z.string().uuid(),
+    mode: z.enum(['FULL', 'INCREMENTAL']),
+    additiveCodes: z.array(additiveCodeSchema).max(500).optional(),
+  });
 
-export const cancelImportJobSchema: z.ZodType<CancelImportJobRequest> = z.object({
-  reason: z.string().trim().max(500).optional(),
-});
+export const cancelImportJobSchema: z.ZodType<CancelImportJobRequest> =
+  z.object({
+    reason: z.string().trim().max(500).optional(),
+  });
 
 export const retryImportJobSchema: z.ZodType<RetryImportJobRequest> = z.object({
   failedOnly: z.boolean().optional(),
 });
 
-export const updateAdditiveDraftSchema: z.ZodType<UpdateAdditiveDraftRequest> = z
-  .object({
-    name: z.string().trim().min(1).max(200).optional(),
-    category: z.string().trim().min(1).max(80).optional(),
-    description: z.string().trim().min(1).max(20_000).optional(),
-    foodIndustryUses: z.string().trim().min(1).max(20_000).optional(),
-    healthImpact: z.string().trim().min(1).max(20_000).optional(),
-    lowDoseEffects: z.string().trim().max(20_000).nullable().optional(),
-    highDoseEffects: z.string().trim().max(20_000).nullable().optional(),
-    toxicityLevel: z.nativeEnum(ToxicityLevel).optional(),
-    pregnancyStatus: z.nativeEnum(PregnancyStatus).optional(),
-    pregnancyReason: z.string().trim().min(1).max(20_000).optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
+export const updateAdditiveDraftSchema: z.ZodType<UpdateAdditiveDraftRequest> =
+  z
+    .object({
+      name: z.string().trim().min(1).max(200).optional(),
+      category: z.string().trim().min(1).max(80).optional(),
+      description: z.string().trim().min(1).max(20_000).optional(),
+      foodIndustryUses: z.string().trim().min(1).max(20_000).optional(),
+      healthImpact: z.string().trim().min(1).max(20_000).optional(),
+      lowDoseEffects: z.string().trim().max(20_000).nullable().optional(),
+      highDoseEffects: z.string().trim().max(20_000).nullable().optional(),
+      toxicityLevel: z.nativeEnum(ToxicityLevel).optional(),
+      pregnancyStatus: z.nativeEnum(PregnancyStatus).optional(),
+      pregnancyReason: z.string().trim().min(1).max(20_000).optional(),
+    })
+    .refine(
+      (value) => Object.keys(value).length > 0,
+      'At least one field is required',
+    );
 
-export const publishAdditiveSchema: z.ZodType<PublishAdditiveRequest> = z.object({
-  reviewNote: z.string().trim().min(1).max(2000),
-});
+export const publishAdditiveSchema: z.ZodType<PublishAdditiveRequest> =
+  z.object({
+    reviewNote: z.string().trim().min(1).max(2000),
+  });
 
-export const unpublishAdditiveSchema: z.ZodType<UnpublishAdditiveRequest> = z.object({
-  reason: z.string().trim().min(1).max(2000),
-});
+export const unpublishAdditiveSchema: z.ZodType<UnpublishAdditiveRequest> =
+  z.object({
+    reason: z.string().trim().min(1).max(2000),
+  });
 
 export const restoreAdditiveRevisionSchema: z.ZodType<RestoreAdditiveRevisionRequest> =
   z.object({ reason: z.string().trim().min(1).max(2000) });
-

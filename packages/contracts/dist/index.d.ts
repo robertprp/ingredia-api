@@ -46,6 +46,39 @@ export declare enum SubscriptionProvider {
     APPLE = "APPLE",
     GOOGLE_PLAY = "GOOGLE_PLAY"
 }
+export declare enum BillingClientPlatform {
+    WEB = "WEB",
+    IOS = "IOS",
+    ANDROID = "ANDROID"
+}
+export declare enum BillingDistributionChannel {
+    WEB_DIRECT = "WEB_DIRECT",
+    APP_STORE = "APP_STORE",
+    GOOGLE_PLAY = "GOOGLE_PLAY"
+}
+export declare enum BillingPurchaseAction {
+    NONE = "NONE",
+    STRIPE_CHECKOUT = "STRIPE_CHECKOUT",
+    APP_STORE_PURCHASE = "APP_STORE_PURCHASE",
+    GOOGLE_PLAY_PURCHASE = "GOOGLE_PLAY_PURCHASE"
+}
+export declare enum BillingRestoreAction {
+    NONE = "NONE",
+    APP_STORE_RESTORE = "APP_STORE_RESTORE",
+    GOOGLE_PLAY_RESTORE = "GOOGLE_PLAY_RESTORE"
+}
+export declare enum BillingManagementAction {
+    NONE = "NONE",
+    STRIPE_PORTAL = "STRIPE_PORTAL",
+    APP_STORE_SUBSCRIPTIONS = "APP_STORE_SUBSCRIPTIONS",
+    GOOGLE_PLAY_SUBSCRIPTIONS = "GOOGLE_PLAY_SUBSCRIPTIONS",
+    CONTACT_SUPPORT = "CONTACT_SUPPORT"
+}
+export declare enum BillingEligibilityReason {
+    ELIGIBLE = "ELIGIBLE",
+    CHANNEL_MISMATCH = "CHANNEL_MISMATCH",
+    EXISTING_SUBSCRIPTION = "EXISTING_SUBSCRIPTION"
+}
 export declare enum ImportJobStatus {
     QUEUED = "QUEUED",
     RUNNING = "RUNNING",
@@ -293,10 +326,11 @@ export interface ComparisonListItem {
 export interface BillingPlan {
     id: string;
     name: string;
-    localizedPrice: string;
+    localizedPrice: string | null;
     billingPeriod: 'MONTHLY' | 'YEARLY';
     trialDays: number;
     capabilities: string[];
+    purchasable: boolean;
 }
 export interface BillingPlansResponse {
     plans: BillingPlan[];
@@ -306,6 +340,22 @@ export interface UserSubscriptionResponse {
     provider: SubscriptionProvider | null;
     planId: string | null;
     renewsAt: ISODateTime | null;
+    currentPeriodEndsAt: ISODateTime | null;
+    cancelAtPeriodEnd: boolean;
+}
+export interface BillingEligibilityQuery {
+    platform: BillingClientPlatform;
+    distributionChannel: BillingDistributionChannel;
+    storefront?: string;
+}
+export interface BillingEligibilityResponse {
+    policyVersion: string;
+    purchaseAllowed: boolean;
+    purchaseProvider: SubscriptionProvider | null;
+    purchaseAction: BillingPurchaseAction;
+    restoreAction: BillingRestoreAction;
+    managementAction: BillingManagementAction;
+    reason: BillingEligibilityReason;
 }
 export interface CreateCheckoutSessionRequest {
     planId: string;
@@ -487,6 +537,7 @@ export declare const createDataExportSchema: z.ZodType<CreateDataExportRequest>;
 export declare const deleteAccountSchema: z.ZodType<DeleteAccountRequest>;
 export declare const createCheckoutSessionSchema: z.ZodType<CreateCheckoutSessionRequest>;
 export declare const createBillingPortalSessionSchema: z.ZodType<CreateBillingPortalSessionRequest>;
+export declare const billingEligibilityQuerySchema: z.ZodType<BillingEligibilityQuery>;
 export declare const verifyMobilePurchaseSchema: z.ZodType<VerifyMobilePurchaseRequest>;
 export declare const restoreMobilePurchasesSchema: z.ZodType<RestoreMobilePurchasesRequest>;
 export declare const cursorPageSchema: z.ZodObject<{

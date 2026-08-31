@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import {
   AdditiveRepositoryPort,
@@ -14,41 +14,54 @@ import {
 
 @Injectable()
 export class PrismaAdditiveRepository implements AdditiveRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async startIngestion(sourceInput: {
-    key: string;
-    name: string;
-    baseUrl: string;
-    discovered: number;
-  }): Promise<IngestionRunResult> {
-    const source = await this.prisma.informationSource.upsert({
-      where: { key: sourceInput.key },
-      update: { name: sourceInput.name, baseUrl: sourceInput.baseUrl },
-      create: {
-        key: sourceInput.key,
-        name: sourceInput.name,
-        baseUrl: sourceInput.baseUrl,
-      },
-    });
-    const run = await this.prisma.additiveIngestionRun.create({
-      data: { sourceId: source.id, discovered: sourceInput.discovered },
-      select: { id: true },
-    });
-    return { runId: run.id };
-  }
+  async startIngestion(input: {
+      key: string;
+      name: string;
+      baseUrl: string;
+      discovered: number;
+    }) {
+      // 1. Ensure the information source exists and get its actual UUID
+      const source = await this.prisma.informationSource.upsert({
+        where: { key: input.key },
+        update: {
+          name: input.name,
+          baseUrl: input.baseUrl,
+          updatedAt: new Date(),
+        },
+        create: {
+          key: input.key,
+          name: input.name,
+          baseUrl: input.baseUrl,
+          updatedAt: new Date(),
+        },
+      });
+  
+      // 2. Create the run using the valid source.id (UUID)
+      const run = await this.prisma.additiveIngestionRun.create({
+        data: {
+          sourceId: source.id, 
+          status: 'RUNNING',
+          discovered: input.discovered,
+        },
+      });
+  
+      return { runId: run.id };
+    }
 
   async saveSourceEntry(entry: AdditiveSourceEntry): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const source = await transaction.informationSource.upsert({
-        where: { key: entry.sourceKey },
-        update: { name: entry.sourceName, baseUrl: entry.sourceBaseUrl },
-        create: {
-          key: entry.sourceKey,
-          name: entry.sourceName,
-          baseUrl: entry.sourceBaseUrl,
-        },
-      });
+          const source = await transaction.informationSource.upsert({ 
+            where: { key: entry.sourceKey },
+            update: { name: entry.sourceName, baseUrl: entry.sourceBaseUrl },
+            create: {
+              key: entry.sourceKey,
+              name: entry.sourceName,
+              baseUrl: entry.sourceBaseUrl,
+              updatedAt: new Date(),
+            },
+          });
       const additive = await transaction.additive.upsert({
         where: { eNumber: entry.eNumber },
         update: {},
@@ -63,6 +76,7 @@ export class PrismaAdditiveRepository implements AdditiveRepositoryPort {
           toxicityLevel: entry.toxicityLevel,
           pregnancySuitability: entry.pregnancySuitability,
           pregnancyRationale: entry.pregnancyRationale,
+          updatedAt: new Date(),
         },
         select: { id: true },
       });
@@ -162,7 +176,7 @@ export class PrismaAdditiveRepository implements AdditiveRepositoryPort {
           ...(input.normalizedNames.length
             ? [
                 {
-                  aliases: {
+                  additiveAlias: {
                     some: { normalizedName: { in: input.normalizedNames } },
                   },
                 },
@@ -204,6 +218,7 @@ export class PrismaAdditiveRepository implements AdditiveRepositoryPort {
       contentHash: entry.contentHash,
       fetchedAt: entry.fetchedAt,
       lastSeenAt: new Date(),
+      updatedAt: new Date(),
     };
   }
 

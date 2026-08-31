@@ -18,11 +18,15 @@ export class ImportAdditivesService {
   private readonly logger = new Logger(ImportAdditivesService.name);
 
   constructor(
-    @Inject(ADDITIVE_REPOSITORY)
-    private readonly repository: AdditiveRepositoryPort,
-    private readonly aditivosAlimentarios: AditivosAlimentariosSource,
-    private readonly eAditivos: EAditivosSource,
-  ) {}
+      @Inject(ADDITIVE_REPOSITORY)
+      private readonly repository: AdditiveRepositoryPort,
+      
+      @Inject(AditivosAlimentariosSource) 
+      private readonly aditivosAlimentarios: AditivosAlimentariosSource,
+      
+      @Inject(EAditivosSource) 
+      private readonly eAditivos: EAditivosSource,
+    ) {}
 
   async importAll(sourceKey?: string): Promise<SourceImportResult[]> {
     const sources = this.sources().filter(

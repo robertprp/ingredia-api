@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
@@ -8,38 +8,32 @@ datasource db {
 }
 
 model User {
-  id                          String       @id
-  name                        String
-  email                       String       @unique
-  emailVerified               Boolean      @default(false)
-  image                       String?
-  createdAt                   DateTime     @default(now())
-  updatedAt                   DateTime     @updatedAt
-  username                    String?      @unique
-  displayUsername             String?
-  verificationStatus          String       @default("NOT_STARTED")
-  identityVerifiedAt          DateTime?
-  verificationStatusUpdatedAt DateTime?
-  verificationStatusEventId   String?
-  accounts                    Account[]
-  invitations                 Invitation[]
-  members                     Member[]
-  sessions                    Session[]
+  id                  String                @id
+  name                String
+  email               String                @unique
+  emailVerified       Boolean               @default(false)
+  image               String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  username            String?               @unique
+  displayUsername     String?
+  accounts            Account[]
+  billingSubscription billingSubscription[]
+  sessions            Session[]
 
   @@map("user")
 }
 
 model Session {
-  id                   String   @id
-  expiresAt            DateTime
-  token                String   @unique
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  ipAddress            String?
-  userAgent            String?
-  userId               String
-  activeOrganizationId String?
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("session")
@@ -77,246 +71,187 @@ model Verification {
   @@map("verification")
 }
 
-model Organization {
-  id          String       @id
-  name        String
-  slug        String       @unique
-  logo        String?
-  createdAt   DateTime
-  metadata    String?
-  invitations Invitation[]
-  members     Member[]
-
-  @@map("organization")
-}
-
-model Member {
-  id             String       @id
-  organizationId String
-  userId         String
-  role           String       @default("member")
-  createdAt      DateTime
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
-  @@index([userId])
-  @@map("member")
-}
-
-model Invitation {
-  id             String       @id
-  organizationId String
-  email          String
-  role           String?
-  status         String       @default("pending")
-  expiresAt      DateTime
-  createdAt      DateTime     @default(now())
-  inviterId      String
-  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
-  @@index([email])
-  @@map("invitation")
-}
-
 model additive {
-  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  e_number               String                   @unique
-  name                   String
-  description            String
-  food_uses              String
-  health_impact          String
-  low_dose_effects       String?
-  high_dose_effects      String?
-  toxicity_level         ToxicityLevel
-  pregnancy_suitability  PregnancySuitability     @default(UNKNOWN)
-  pregnancy_rationale    String
-  curation_status        CurationStatus           @default(REVIEW_REQUIRED)
-  content_updated_at     DateTime                 @default(now())
-  created_at             DateTime                 @default(now())
-  updated_at             DateTime
-  additive_alias         additive_alias[]
-  additive_source_record additive_source_record[]
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eNumber              String                 @unique(map: "additive_e_number_key")
+  name                 String
+  description          String
+  foodUses             String
+  healthImpact         String
+  lowDoseEffects       String?
+  highDoseEffects      String?
+  toxicityLevel        toxicityLevel
+  pregnancySuitability pregnancySuitability   @default(UNKNOWN)
+  pregnancyRationale   String
+  curationStatus       curationStatus         @default(REVIEW_REQUIRED)
+  contentUpdatedAt     DateTime               @default(now())
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  additiveAlias        additiveAlias[]
+  additiveSourceRecord additiveSourceRecord[]
 
-  @@index([pregnancy_suitability])
-  @@index([toxicity_level])
+  @@index([pregnancySuitability], map: "additive_pregnancy_suitability_idx")
+  @@index([toxicityLevel], map: "additive_toxicity_level_idx")
 }
 
-model additive_alias {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  additive_id     String   @db.Uuid
-  name            String
-  normalized_name String
-  created_at      DateTime @default(now())
-  additive        additive @relation(fields: [additive_id], references: [id], onDelete: Cascade)
+model additiveAlias {
+  id             String   @id(map: "additive_alias_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  additiveId     String   @db.Uuid
+  name           String
+  normalizedName String
+  createdAt      DateTime @default(now())
+  additive       additive @relation(fields: [additiveId], references: [id], onDelete: Cascade, map: "additive_alias_additive_id_fkey")
 
-  @@unique([additive_id, normalized_name])
-  @@index([normalized_name])
+  @@unique([additiveId, normalizedName], map: "additive_alias_additive_id_normalized_name_key")
+  @@index([normalizedName], map: "additive_alias_normalized_name_idx")
 }
 
-model additive_ingestion_run {
-  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  source_id          String             @db.Uuid
-  status             IngestionStatus    @default(RUNNING)
-  discovered         Int                @default(0)
-  imported           Int                @default(0)
-  failed             Int                @default(0)
-  error_summary      String?
-  started_at         DateTime           @default(now())
-  completed_at       DateTime?
-  information_source information_source @relation(fields: [source_id], references: [id])
+model additiveIngestionRun {
+  id                String            @id(map: "additive_ingestion_run_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceId          String            @db.Uuid
+  status            ingestionStatus   @default(RUNNING)
+  discovered        Int               @default(0)
+  imported          Int               @default(0)
+  failed            Int               @default(0)
+  errorSummary      String?
+  startedAt         DateTime          @default(now())
+  completedAt       DateTime?
+  informationSource informationSource @relation(fields: [sourceId], references: [id], map: "additive_ingestion_run_source_id_fkey")
 
-  @@index([source_id, started_at])
+  @@index([sourceId, startedAt], map: "additive_ingestion_run_source_id_started_at_idx")
 }
 
-model additive_source_record {
-  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  additive_id           String               @db.Uuid
-  source_id             String               @db.Uuid
-  source_url            String
-  source_name           String
-  description           String
-  food_uses             String
-  health_impact         String
-  low_dose_effects      String?
-  high_dose_effects     String?
-  toxicity_level        ToxicityLevel
-  source_classification String?
-  pregnancy_suitability PregnancySuitability @default(UNKNOWN)
-  pregnancy_rationale   String
-  content_hash          String
-  fetched_at            DateTime
-  last_seen_at          DateTime
-  created_at            DateTime             @default(now())
-  updated_at            DateTime
-  additive              additive             @relation(fields: [additive_id], references: [id], onDelete: Cascade)
-  information_source    information_source   @relation(fields: [source_id], references: [id])
+model additiveSourceRecord {
+  id                   String               @id(map: "additive_source_record_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  additiveId           String               @db.Uuid
+  sourceId             String               @db.Uuid
+  sourceUrl            String
+  sourceName           String
+  description          String
+  foodUses             String
+  healthImpact         String
+  lowDoseEffects       String?
+  highDoseEffects      String?
+  toxicityLevel        toxicityLevel
+  sourceClassification String?
+  pregnancySuitability pregnancySuitability @default(UNKNOWN)
+  pregnancyRationale   String
+  contentHash          String
+  fetchedAt            DateTime
+  lastSeenAt           DateTime
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime
+  additive             additive             @relation(fields: [additiveId], references: [id], onDelete: Cascade, map: "additive_source_record_additive_id_fkey")
+  informationSource    informationSource    @relation(fields: [sourceId], references: [id], map: "additive_source_record_source_id_fkey")
 
-  @@unique([additive_id, source_id])
-  @@index([source_id, last_seen_at])
+  @@unique([additiveId, sourceId], map: "additive_source_record_additive_id_source_id_key")
+  @@index([sourceId, lastSeenAt], map: "additive_source_record_source_id_last_seen_at_idx")
 }
 
-model information_source {
-  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  key                    String                   @unique
-  name                   String
-  base_url               String
-  created_at             DateTime                 @default(now())
-  updated_at             DateTime
-  additive_ingestion_run additive_ingestion_run[]
-  additive_source_record additive_source_record[]
-}
-
-model catalog_retailer {
-  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  key        String           @unique
-  name       String
-  created_at DateTime         @default(now())
-  updated_at DateTime         @updatedAt
-  markets    catalog_market[]
-}
-
-model catalog_market {
-  id             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  retailer_id    String                  @db.Uuid
-  country_code   CatalogCountry
-  locale         String
-  currency       String                  @db.Char(3)
-  base_url       String
-  created_at     DateTime                @default(now())
-  updated_at     DateTime                @updatedAt
-  retailer       catalog_retailer        @relation(fields: [retailer_id], references: [id], onDelete: Cascade)
-  products       catalog_product[]
-  ingestion_runs catalog_ingestion_run[]
-
-  @@unique([retailer_id, country_code])
-  @@index([country_code])
-}
-
-model catalog_product {
-  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  market_id           String                  @db.Uuid
-  external_id         String
+model billingPlan {
+  id                  String                @id(map: "billing_plan_pkey")
   name                String
-  brand               String?
-  description         String?
-  ingredients_text    String?
-  categories          String[]
-  price_minor         Int?
-  regular_price_minor Int?
-  currency            String                  @db.Char(3)
-  availability        String?
-  source_url          String
-  source_payload      Json
-  content_hash        String
-  fetched_at          DateTime
-  last_seen_at        DateTime
-  is_active           Boolean                 @default(true)
-  created_at          DateTime                @default(now())
-  updated_at          DateTime                @updatedAt
-  market              catalog_market          @relation(fields: [market_id], references: [id], onDelete: Cascade)
-  images              catalog_product_image[]
+  billingPeriod       billingPeriod
+  trialDays           Int                   @default(0)
+  capabilities        String[]
+  monthlyScanLimit    Int?
+  amountMinor         Int?
+  currency            String?               @db.Char(3)
+  isPublic            Boolean               @default(false)
+  isPurchasable       Boolean               @default(false)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime
+  billingSubscription billingSubscription[]
 
-  @@unique([market_id, external_id])
-  @@index([market_id, is_active])
-  @@index([brand])
+  @@index([isPublic], map: "billing_plan_is_public_idx")
 }
 
-model catalog_product_image {
-  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  product_id  String          @db.Uuid
-  source_url  String
-  position    Int             @default(0)
-  is_primary  Boolean         @default(false)
-  created_at  DateTime        @default(now())
-  updated_at  DateTime        @updatedAt
-  product     catalog_product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+model billingSubscription {
+  id                 String                    @id(map: "billing_subscription_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String
+  planId             String
+  provider           billingProvider
+  environment        billingEnvironment
+  externalPurchaseId String
+  status             billingSubscriptionStatus
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean                   @default(false)
+  canceledAt         DateTime?
+  revokedAt          DateTime?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime
+  billingPlan        billingPlan               @relation(fields: [planId], references: [id], map: "billing_subscription_plan_id_fkey")
+  user               User                      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "billing_subscription_user_id_fkey")
 
-  @@unique([product_id, source_url])
-  @@index([product_id, position])
+  @@unique([provider, environment, externalPurchaseId], map: "billing_subscription_provider_environment_external_purchase_key")
+  @@index([status, currentPeriodEnd], map: "billing_subscription_status_current_period_end_idx")
+  @@index([userId, updatedAt], map: "billing_subscription_user_id_updated_at_idx")
 }
 
-model catalog_ingestion_run {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  market_id     String          @db.Uuid
-  status        IngestionStatus @default(RUNNING)
-  discovered    Int             @default(0)
-  imported      Int             @default(0)
-  failed        Int             @default(0)
-  error_summary String?
-  started_at    DateTime        @default(now())
-  completed_at  DateTime?
-  market        catalog_market  @relation(fields: [market_id], references: [id])
-
-  @@index([market_id, started_at])
+model informationSource {
+  id                   String                 @id(map: "information_source_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key                  String                 @unique(map: "information_source_key_key")
+  name                 String
+  baseUrl              String
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  additiveIngestionRun additiveIngestionRun[]
+  additiveSourceRecord additiveSourceRecord[]
 }
 
-enum CatalogCountry {
-  ES
-  FR
+model informationScore {
+  id        String   @id(map: "informationScorePkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key       String   @unique(map: "informationScoreKeyKey")
+  name      String
+  baseUrl   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
 }
 
-enum CurationStatus {
+enum billingEnvironment {
+  SANDBOX
+  PRODUCTION
+}
+
+enum billingPeriod {
+  MONTHLY
+  YEARLY
+}
+
+enum billingProvider {
+  STRIPE
+  APPLE
+  GOOGLE_PLAY
+}
+
+enum billingSubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum curationStatus {
   AUTO_GENERATED
   REVIEW_REQUIRED
   REVIEWED
 }
 
-enum IngestionStatus {
+enum ingestionStatus {
   RUNNING
   COMPLETED
   FAILED
 }
 
-enum PregnancySuitability {
+enum pregnancySuitability {
   SUITABLE
   NOT_SUITABLE
   UNKNOWN
 }
 
-enum ToxicityLevel {
+enum toxicityLevel {
   LOW
   MEDIUM
   HIGH
