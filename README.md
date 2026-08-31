@@ -1,133 +1,205 @@
-<p align="center">
-  <a href="https://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-  <a href="https://www.prisma.io/" target="blank"><svg viewBox="-27 0 310 310" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid" fill="#000000" width="120"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <path d="M254.312882,235.518775 L148.000961,9.74987264 C145.309805,4.08935083 139.731924,0.359884549 133.472618,0.0359753113 C127.198908,-0.384374336 121.212054,2.71925839 117.939655,8.08838662 L2.63252565,194.847143 C-0.947129465,200.604248 -0.871814894,207.912774 2.8257217,213.594888 L59.2003287,300.896318 C63.5805009,307.626626 71.8662281,310.673635 79.5631922,308.384597 L243.161606,259.992851 C248.145475,258.535702 252.252801,254.989363 254.421072,250.271225 C256.559881,245.57581 256.523135,240.176915 254.32061,235.511047 L254.312882,235.518775 Z M230.511129,245.201761 L91.6881763,286.252058 C87.4533189,287.511696 83.388474,283.840971 84.269448,279.567474 L133.866738,42.0831633 C134.794079,37.6396542 140.929985,36.9364206 142.869673,41.0476325 L234.684164,236.021085 C235.505704,237.779423 235.515611,239.809427 234.711272,241.575701 C233.906934,243.341974 232.369115,244.667163 230.503401,245.201761 L230.511129,245.201761 Z" fill="#6c737a" fill-rule="nonzero"> </path> </g> </g></svg></a>
-  <a href="https://www.better-auth.com/" target="blank"><img src="https://images.seeklogo.com/logo-png/65/2/better-auth-logo-png_seeklogo-653281.png" width="180" height="220" alt="Nest Logo" /></a>
-</p>
+# NestJS + Better Auth + Prisma scaffold for Expo
 
-# NestJS + BetterAuth + Prisma v7 Starter Template
+A backend starter for Expo and React Native applications, built with NestJS,
+Better Auth, Prisma, and PostgreSQL.
 
-### Description
-A production-ready starter template for building a NestJS backend with:
+This repository provides the server-side wiring for authentication, database
+access, mobile deep links, and a modular NestJS application. It is a scaffold,
+not a production-ready authentication product: choose the providers you need,
+replace every placeholder, and review the security settings before deploying.
 
-- ✅ BetterAuth (session-based authentication)
-- ✅ Prisma v7 (with adapter setup)
-- ✅ PostgreSQL
-- ✅ Clean architecture & DI-friendly setup
-- ✅ Typed auth instance (no `any`)
-- ✅ Ready-to-use auth routes (register, login, logout, me, etc.)
+## Included
 
-This template solves the **real-world integration issues** between:
-- NestJS dependency injection
-- BetterAuth factory-based API
-- Prisma v7 new engine / adapter system
+- NestJS 11 with TypeScript
+- Better Auth mounted at `/api/auth/*`
+- Email and password authentication
+- Email verification and password-reset hooks using Resend
+- Google OAuth configuration as an example
+- Better Auth's Expo server and client integration points
+- Prisma 7 with PostgreSQL and the `pg` driver adapter
+- Request rate limiting and trusted-origin examples
+- Swagger UI at `/api`
+- A starter health endpoint at `/`
+- Jest, ESLint, and Prettier
 
-If you've struggled to make these three work together — this repo is for you.
+Optional Better Auth plugins are shown in the auth configuration but should only
+be enabled when their schema and environment variables are also configured.
 
----
+## Requirements
 
-### 🚀 Features Embedded 
+- Node.js
+- pnpm
+- PostgreSQL
+- An Expo or React Native client application
+- Resend and Google OAuth credentials if you keep those integrations enabled
 
-- Session-based authentication (cookies)
-- Email & password auth enabled
-- Prisma schema already configured for BetterAuth
-- Auth module fully wired into NestJS
-- PrismaService + adapter setup
-- Factory-based auth instance (`createAuth`)
-- Strong TypeScript typing everywhere
+## Getting started
 
----
-
-### 🧱 Tech Stack
-
-- NestJS (REST API Mode)
-- BetterAuth (latest)
-- Prisma v7 (latest)
-- PostgreSQL (via Neon but easy to change to another DB)
-- TypeScript
-
----
-
-### 📦 Installation
+Install the dependencies and create a local environment file:
 
 ```bash
-git clone https://github.com/ussfranck/nestjs-better-auth-prisma.git
-cd nestjs-better-auth-prisma-template
-npm install
-````
-
----
-
-Create a `.env` file:
-
-use `.env.example` as a template.
-
----
-
-### 🗄️ Setup database
-
-If your database is PostgreSQL via Neon, you just change the DATABASE_URL in the `.env` file. Otherwise, you'll need to change the connection string, pool adapter for betterAuth and Prisma
-
-Run:
-```bash
-pnpm prisma generate
-pnpm prisma migrate dev
+pnpm install
+cp .env.example .env
 ```
 
----
-
-### ▶️ Run the server
+Generate a strong Better Auth secret and add it to `.env`:
 
 ```bash
-pnpm dev
+openssl rand -base64 32
 ```
 
-The Server will start on:
+The scaffold keeps Better Auth's schema-generation configuration in
+`auth.schema.ts`. On a new clone, generate the Prisma client, generate the
+Better Auth models, regenerate the client, and create the initial migration:
 
+```bash
+pnpm exec prisma generate
+pnpm dlx @better-auth/cli@latest generate --config auth.schema.ts --yes
+pnpm exec prisma generate
+pnpm exec prisma migrate dev --name init
 ```
-http://localhost:3000
+
+Start the API:
+
+```bash
+pnpm start:dev
 ```
 
----
-### 🔐 Auth Endpoints
+The server listens on `http://localhost:3000` by default.
 
-* POST `/auth/register`
-* POST `/auth/login`
-* POST `/auth/logout`
-* GET `/auth/me`
+## Environment variables
 
-Session is stored in **HTTP-only cookies**.
+Never commit `.env` or real credentials. Keep only empty or clearly fake values
+in `.env.example`.
 
----
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `BETTER_AUTH_SECRET` | Random secret of at least 32 characters |
+| `BETTER_AUTH_BASE_URL` | Public base URL of this API |
+| `APP_NAME` | Application name used by Better Auth |
+| `PORT` | Optional HTTP port; defaults to `3000` |
+| `RESEND_API_KEY` | Required by the included email callbacks |
+| `GOOGLE_CLIENT_ID` | Required if Google sign-in is enabled |
+| `GOOGLE_CLIENT_SECRET` | Required if Google sign-in is enabled |
 
-### 🧠 Architecture Notes
+Add variables for optional plugins only when those plugins are enabled. Validate
+all required variables at startup and do not use fallback secrets in deployed
+environments.
 
-* Auth instance is created via factory: `createAuth(prisma)`
-* Typed using: `ReturnType<typeof createAuth>`
-* Prisma v7 uses explicit adapter configuration
-* No Passport, no JWT, no magic — just sessions done right.
+## Configure Better Auth
 
----
+The runtime configuration is in
+`src/common/auth/auth.instance.ts`. The separate `auth.schema.ts` file exists so
+the Better Auth CLI can generate the matching Prisma models.
 
-### ❗ Why this exists 🤦🏽‍♂️
+Keep both files aligned whenever you add or remove:
 
-Because integrating:
+- plugins;
+- authentication providers;
+- custom user fields; or
+- model and field mappings.
 
-* NestJS
-* BetterAuth
-* Prisma v7 (latest version)
+After a Better Auth schema change, regenerate the Prisma schema and create a
+reviewable migration:
 
-is **not trivial at all** in real projects.🤦🏽‍♂️
+```bash
+pnpm dlx @better-auth/cli@latest generate --config auth.schema.ts --yes
+pnpm exec prisma generate
+pnpm exec prisma migrate dev --name describe_the_change
+```
 
-This repo gives you a **clean, working, production-shaped base**.
+Do not hand-edit SQL that changes Better Auth-owned tables. Generate the schema,
+review it, and let Prisma create the migration.
 
----
+## Connect an Expo client
 
-### 🧑‍💻 Author
+Install the Better Auth Expo client and secure storage in the Expo project:
 
-USS
+```bash
+pnpm add better-auth @better-auth/expo expo-secure-store expo-network
+```
 
----
+Create the client with the same URL and deep-link scheme trusted by the server:
 
-### 📄 License
+```ts
+import { expoClient } from '@better-auth/expo/client';
+import { createAuthClient } from 'better-auth/react';
+import * as SecureStore from 'expo-secure-store';
 
-MIT
+export const authClient = createAuthClient({
+  baseURL: 'http://192.168.1.100:3000',
+  plugins: [
+    expoClient({
+      scheme: 'yourapp',
+      storagePrefix: 'yourapp',
+      storage: SecureStore,
+    }),
+  ],
+});
+```
+
+Use a LAN address or a reachable HTTPS URL on a physical device; `localhost`
+points to the device itself. Define the same scheme in the Expo app configuration
+and in Better Auth's `trustedOrigins`. Keep broad `exp://` wildcard origins for
+local development only.
+
+For requests to protected NestJS endpoints, forward the Better Auth cookie:
+
+```ts
+const cookie = await authClient.getCookie();
+
+const response = await fetch(`${API_URL}/example`, {
+  headers: {
+    Cookie: cookie,
+  },
+});
+```
+
+See the official [Better Auth Expo integration guide](https://better-auth.com/docs/integrations/expo)
+for social sign-in, deep linking, and platform-specific setup.
+
+## Project layout
+
+```text
+src/
+  common/
+    auth/                  # Better Auth runtime configuration
+    prisma/                # Prisma service and NestJS module
+  config/                  # Environment validation
+  modules/                 # Business-capability modules
+  main.ts                  # Application bootstrap and Swagger
+prisma/
+  migrations/              # Reviewed database migrations
+  schema.prisma            # Prisma schema
+auth.schema.ts             # Better Auth CLI schema configuration
+```
+
+## Commands
+
+```bash
+pnpm start:dev     # Run the API in watch mode
+pnpm build         # Build the application
+pnpm test          # Run unit tests
+pnpm test:e2e      # Run end-to-end tests
+pnpm lint          # Run ESLint
+pnpm format        # Format source and test files
+```
+
+## Security notes
+
+- Never commit `.env`, database dumps, service-account files, tokens, or private
+  keys.
+- Replace the example app name, deep-link schemes, cookie prefix, OAuth settings,
+  email templates, and trusted origins.
+- Use HTTPS and secure cookies in production.
+- Allow only the exact production web origins and mobile schemes you control.
+- Keep OAuth client secrets and email-provider credentials on the server.
+- Review generated migrations before applying them.
+- Add authorization and resource-ownership checks for your business endpoints;
+  authentication alone is not authorization.
+
+## License
+
+No open-source license is included yet. Add the license you want to use before
+publishing this scaffold for reuse.
