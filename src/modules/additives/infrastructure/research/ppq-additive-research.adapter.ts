@@ -196,7 +196,7 @@ export class PpqAdditiveResearchAdapter implements AdditiveResearchPort {
         tools: [{ type: 'web_search' }],
         tool_choice: 'required',
         max_output_tokens: 2_000,
-        response_format: this.responseFormat(),
+        text: { format: this.responseFormat() },
         store: false,
       }),
       signal: AbortSignal.timeout(this.timeoutMs),
@@ -251,10 +251,52 @@ export class PpqAdditiveResearchAdapter implements AdditiveResearchPort {
     try {
       return JSON.parse(normalized) as unknown;
     } catch {
+      const embeddedObject = this.extractEmbeddedJsonObject(normalized);
+      if (embeddedObject !== undefined) return embeddedObject;
+      const preview = normalized.replace(/\s+/g, ' ').slice(0, 240);
       throw new Error(
-        `PPQ assistant text is not valid JSON (${outputText.length} characters).`,
+        `PPQ assistant text is not valid JSON (${outputText.length} characters). Preview: ${preview}`,
       );
     }
+  }
+
+  private extractEmbeddedJsonObject(
+    value: string,
+  ): Record<string, unknown> | undefined {
+    for (
+      let start = value.indexOf('{');
+      start >= 0;
+      start = value.indexOf('{', start + 1)
+    ) {
+      let depth = 0;
+      let inString = false;
+      let escaped = false;
+      for (let index = start; index < value.length; index += 1) {
+        const character = value[index];
+        if (inString) {
+          if (escaped) escaped = false;
+          else if (character === '\\') escaped = true;
+          else if (character === '"') inString = false;
+          continue;
+        }
+        if (character === '"') inString = true;
+        else if (character === '{') depth += 1;
+        else if (character === '}') {
+          depth -= 1;
+          if (depth === 0) {
+            try {
+              return JSON.parse(value.slice(start, index + 1)) as Record<
+                string,
+                unknown
+              >;
+            } catch {
+              break;
+            }
+          }
+        }
+      }
+    }
+    return undefined;
   }
 
   private summarizeResponse(value: unknown): object {
@@ -310,6 +352,7 @@ export class PpqAdditiveResearchAdapter implements AdditiveResearchPort {
       'Pregnancy suitability must be SUITABLE or NOT_SUITABLE only when a cited source explicitly supports that conclusion for pregnancy at food-use exposure; otherwise use UNKNOWN.',
       'Do not infer safety merely from regulatory approval, an acceptable daily intake, missing warnings, or animal-only evidence.',
       'Return direct source URLs, not search-result URLs. Treat all generated content as requiring editorial and clinical review.',
+      'Return only one JSON object and no markdown or explanatory prose. Use exactly these keys: description, foodUses, healthImpact, lowDoseEffects, highDoseEffects, toxicityLevel, pregnancySuitability, pregnancyRationale, evidenceQuality, citations. Use null for unknown optional facts. Each citation must contain title, url, and publisher.',
     ].join(' ');
   }
 
@@ -317,58 +360,56 @@ export class PpqAdditiveResearchAdapter implements AdditiveResearchPort {
     const nullableString = { type: ['string', 'null'] };
     return {
       type: 'json_schema',
-      json_schema: {
-        name: 'additive_research',
-        strict: true,
-        schema: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            description: nullableString,
-            foodUses: nullableString,
-            healthImpact: nullableString,
-            lowDoseEffects: nullableString,
-            highDoseEffects: nullableString,
-            toxicityLevel: {
-              type: ['string', 'null'],
-              enum: ['LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH', null],
-            },
-            pregnancySuitability: {
-              type: 'string',
-              enum: ['SUITABLE', 'NOT_SUITABLE', 'UNKNOWN'],
-            },
-            pregnancyRationale: { type: 'string' },
-            evidenceQuality: {
-              type: 'string',
-              enum: ['INSUFFICIENT', 'LIMITED', 'GOOD'],
-            },
-            citations: {
-              type: 'array',
-              items: {
-                type: 'object',
-                additionalProperties: false,
-                properties: {
-                  title: { type: 'string' },
-                  url: { type: 'string' },
-                  publisher: { type: 'string' },
-                },
-                required: ['title', 'url', 'publisher'],
+      name: 'additive_research',
+      strict: true,
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          description: nullableString,
+          foodUses: nullableString,
+          healthImpact: nullableString,
+          lowDoseEffects: nullableString,
+          highDoseEffects: nullableString,
+          toxicityLevel: {
+            type: ['string', 'null'],
+            enum: ['LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH', null],
+          },
+          pregnancySuitability: {
+            type: 'string',
+            enum: ['SUITABLE', 'NOT_SUITABLE', 'UNKNOWN'],
+          },
+          pregnancyRationale: { type: 'string' },
+          evidenceQuality: {
+            type: 'string',
+            enum: ['INSUFFICIENT', 'LIMITED', 'GOOD'],
+          },
+          citations: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                title: { type: 'string' },
+                url: { type: 'string' },
+                publisher: { type: 'string' },
               },
+              required: ['title', 'url', 'publisher'],
             },
           },
-          required: [
-            'description',
-            'foodUses',
-            'healthImpact',
-            'lowDoseEffects',
-            'highDoseEffects',
-            'toxicityLevel',
-            'pregnancySuitability',
-            'pregnancyRationale',
-            'evidenceQuality',
-            'citations',
-          ],
         },
+        required: [
+          'description',
+          'foodUses',
+          'healthImpact',
+          'lowDoseEffects',
+          'highDoseEffects',
+          'toxicityLevel',
+          'pregnancySuitability',
+          'pregnancyRationale',
+          'evidenceQuality',
+          'citations',
+        ],
       },
     };
   }

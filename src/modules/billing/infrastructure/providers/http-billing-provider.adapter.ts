@@ -58,32 +58,56 @@ export class HttpBillingProviderAdapter implements BillingProviderPort {
     return payload.url;
   }
 
+  async getStripePrice(priceId: string): Promise<{
+    currency: string;
+    amountMinor: number;
+  }> {
+    const secret = process.env.STRIPE_SECRET_KEY;
+    if (!secret)
+      throw new ServiceUnavailableException('Stripe is not configured.');
+    const response = await fetch(
+      `https://api.stripe.com/v1/prices/${encodeURIComponent(priceId)}`,
+      {
+        headers: { authorization: `Bearer ${secret}` },
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    const payload: unknown = await response.json();
+    if (
+      !response.ok ||
+      !this.isRecord(payload) ||
+      typeof payload.currency !== 'string' ||
+      typeof payload.unit_amount !== 'number' ||
+      !Number.isSafeInteger(payload.unit_amount) ||
+      payload.unit_amount < 0
+    ) {
+      throw new ServiceUnavailableException('Stripe price is unavailable.');
+    }
+    return {
+      currency: payload.currency.toUpperCase(),
+      amountMinor: payload.unit_amount,
+    };
+  }
+
   verifyMobilePurchase(input: {
     provider: 'APPLE' | 'GOOGLE_PLAY';
+    userId: string;
     planId: string;
     productId: string;
     transactionToken: string;
+    appAccountToken?: string;
+    idempotencyKey: string;
   }): Promise<ProviderSubscriptionState> {
     return this.callVerifier(input.provider, '/verify', input).then((payload) =>
       this.parseSubscription(payload, input.provider),
     );
   }
 
-  async restoreMobilePurchases(input: {
-    provider: 'APPLE' | 'GOOGLE_PLAY';
-    userId: string;
-  }): Promise<ProviderSubscriptionState[]> {
-    const payload = await this.callVerifier(input.provider, '/restore', {
-      userId: input.userId,
-    });
-    if (!this.isRecord(payload) || !Array.isArray(payload.subscriptions)) {
-      throw new ServiceUnavailableException(
-        'Purchase verifier returned invalid data.',
-      );
-    }
-    return payload.subscriptions.map((value) =>
-      this.parseSubscription(value, input.provider),
-    );
+  async acknowledgeGooglePlayPurchase(input: {
+    purchaseToken: string;
+    externalPurchaseId: string;
+  }): Promise<void> {
+    await this.callVerifier('GOOGLE_PLAY', '/acknowledge', input);
   }
 
   async verifyWebhook(input: {
@@ -226,7 +250,14 @@ export class HttpBillingProviderAdapter implements BillingProviderPort {
         'Provider returned invalid subscription data.',
       );
     }
-    const statuses = ['TRIALING', 'ACTIVE', 'PAST_DUE', 'CANCELED', 'EXPIRED'];
+    const statuses = [
+      'PENDING',
+      'TRIALING',
+      'ACTIVE',
+      'PAST_DUE',
+      'CANCELED',
+      'EXPIRED',
+    ];
     if (
       typeof value.planId !== 'string' ||
       typeof value.externalPurchaseId !== 'string' ||

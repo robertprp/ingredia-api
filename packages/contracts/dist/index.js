@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.restoreAdditiveRevisionSchema = exports.unpublishAdditiveSchema = exports.publishAdditiveSchema = exports.updateAdditiveDraftSchema = exports.retryImportJobSchema = exports.cancelImportJobSchema = exports.createImportJobSchema = exports.updateSourceSchema = exports.createSourceSchema = exports.cursorPageSchema = exports.restoreMobilePurchasesSchema = exports.verifyMobilePurchaseSchema = exports.billingEligibilityQuerySchema = exports.createBillingPortalSessionSchema = exports.createCheckoutSessionSchema = exports.deleteAccountSchema = exports.createDataExportSchema = exports.registerDeviceSchema = exports.updateUserProfileSchema = exports.updateSavedAnalysisSchema = exports.createComparisonSchema = exports.updateUserPreferencesSchema = exports.searchAdditivesSchema = exports.listUserAnalysesSchema = exports.reanalyseProductSchema = exports.retryScanSchema = exports.correctScanIngredientsSchema = exports.createTextScanSchema = exports.additiveCodeSchema = exports.UnrecognizedIngredientReason = exports.ValidationErrorCode = exports.ApiErrorCode = exports.UserRole = exports.EvidenceStatus = exports.ImportJobStatus = exports.BillingEligibilityReason = exports.BillingManagementAction = exports.BillingRestoreAction = exports.BillingPurchaseAction = exports.BillingDistributionChannel = exports.BillingClientPlatform = exports.SubscriptionProvider = exports.SubscriptionStatus = exports.ScanStatus = exports.ProductRiskLevel = exports.PregnancyStatus = exports.ToxicityLevel = void 0;
+exports.publishAdditiveSchema = exports.updateAdditiveDraftSchema = exports.retryImportJobSchema = exports.cancelImportJobSchema = exports.createImportJobSchema = exports.updateSourceSchema = exports.createSourceSchema = exports.cursorPageSchema = exports.restorePurchasesSchema = exports.verifyGooglePlayPurchaseSchema = exports.verifyAppStoreTransactionSchema = exports.idempotencyHeadersSchema = exports.billingEligibilityHeadersSchema = exports.createBillingPortalSessionSchema = exports.createCheckoutSessionSchema = exports.deleteAccountSchema = exports.createDataExportSchema = exports.registerDeviceSchema = exports.updateUserProfileSchema = exports.updateSavedAnalysisSchema = exports.createComparisonSchema = exports.updateUserPreferencesSchema = exports.searchAdditivesSchema = exports.listUserAnalysesSchema = exports.reanalyseProductSchema = exports.retryScanSchema = exports.correctScanIngredientsSchema = exports.createTextScanSchema = exports.additiveCodeSchema = exports.UnrecognizedIngredientReason = exports.ValidationErrorCode = exports.ApiErrorCode = exports.UserRole = exports.EvidenceStatus = exports.ImportJobStatus = exports.BillingEligibilityReason = exports.BillingManagementAction = exports.BillingRestoreAction = exports.BillingPurchaseAction = exports.BillingEligibilityReasonCode = exports.BillingPriceSource = exports.BillingChannel = exports.BillingDistributionChannel = exports.BillingClientPlatform = exports.SubscriptionProvider = exports.SubscriptionStatus = exports.ScanStatus = exports.ProductRiskLevel = exports.PregnancyStatus = exports.ToxicityLevel = void 0;
+exports.restoreAdditiveRevisionSchema = exports.unpublishAdditiveSchema = void 0;
 const zod_1 = require("zod");
 var ToxicityLevel;
 (function (ToxicityLevel) {
@@ -35,6 +36,7 @@ var ScanStatus;
 var SubscriptionStatus;
 (function (SubscriptionStatus) {
     SubscriptionStatus["FREE"] = "FREE";
+    SubscriptionStatus["PENDING"] = "PENDING";
     SubscriptionStatus["TRIALING"] = "TRIALING";
     SubscriptionStatus["ACTIVE"] = "ACTIVE";
     SubscriptionStatus["PAST_DUE"] = "PAST_DUE";
@@ -44,7 +46,7 @@ var SubscriptionStatus;
 var SubscriptionProvider;
 (function (SubscriptionProvider) {
     SubscriptionProvider["STRIPE"] = "STRIPE";
-    SubscriptionProvider["APPLE"] = "APPLE";
+    SubscriptionProvider["APP_STORE"] = "APP_STORE";
     SubscriptionProvider["GOOGLE_PLAY"] = "GOOGLE_PLAY";
 })(SubscriptionProvider || (exports.SubscriptionProvider = SubscriptionProvider = {}));
 var BillingClientPlatform;
@@ -55,10 +57,30 @@ var BillingClientPlatform;
 })(BillingClientPlatform || (exports.BillingClientPlatform = BillingClientPlatform = {}));
 var BillingDistributionChannel;
 (function (BillingDistributionChannel) {
-    BillingDistributionChannel["WEB_DIRECT"] = "WEB_DIRECT";
     BillingDistributionChannel["APP_STORE"] = "APP_STORE";
     BillingDistributionChannel["GOOGLE_PLAY"] = "GOOGLE_PLAY";
+    BillingDistributionChannel["DIRECT"] = "DIRECT";
+    BillingDistributionChannel["WEB"] = "WEB";
 })(BillingDistributionChannel || (exports.BillingDistributionChannel = BillingDistributionChannel = {}));
+var BillingChannel;
+(function (BillingChannel) {
+    BillingChannel["STRIPE"] = "STRIPE";
+    BillingChannel["APP_STORE"] = "APP_STORE";
+    BillingChannel["GOOGLE_PLAY"] = "GOOGLE_PLAY";
+})(BillingChannel || (exports.BillingChannel = BillingChannel = {}));
+var BillingPriceSource;
+(function (BillingPriceSource) {
+    BillingPriceSource["STORE"] = "STORE";
+    BillingPriceSource["SERVER"] = "SERVER";
+})(BillingPriceSource || (exports.BillingPriceSource = BillingPriceSource = {}));
+var BillingEligibilityReasonCode;
+(function (BillingEligibilityReasonCode) {
+    BillingEligibilityReasonCode["APP_STORE_DIGITAL_FEATURES"] = "APP_STORE_DIGITAL_FEATURES";
+    BillingEligibilityReasonCode["GOOGLE_PLAY_DIGITAL_FEATURES"] = "GOOGLE_PLAY_DIGITAL_FEATURES";
+    BillingEligibilityReasonCode["WEB_DIGITAL_FEATURES"] = "WEB_DIGITAL_FEATURES";
+    BillingEligibilityReasonCode["EXISTING_SUBSCRIPTION"] = "EXISTING_SUBSCRIPTION";
+    BillingEligibilityReasonCode["DISTRIBUTION_MISMATCH"] = "DISTRIBUTION_MISMATCH";
+})(BillingEligibilityReasonCode || (exports.BillingEligibilityReasonCode = BillingEligibilityReasonCode = {}));
 var BillingPurchaseAction;
 (function (BillingPurchaseAction) {
     BillingPurchaseAction["NONE"] = "NONE";
@@ -207,27 +229,46 @@ exports.createCheckoutSessionSchema = zod_1.z.object({
     cancelUrl: zod_1.z.url(),
 });
 exports.createBillingPortalSessionSchema = zod_1.z.object({ returnUrl: zod_1.z.url() });
-exports.billingEligibilityQuerySchema = zod_1.z.object({
-    platform: zod_1.z.nativeEnum(BillingClientPlatform),
-    distributionChannel: zod_1.z.nativeEnum(BillingDistributionChannel),
-    storefront: zod_1.z
+exports.billingEligibilityHeadersSchema = zod_1.z
+    .object({
+    'x-ingredia-platform': zod_1.z.nativeEnum(BillingClientPlatform),
+    'x-ingredia-distribution': zod_1.z.nativeEnum(BillingDistributionChannel),
+    'x-ingredia-storefront': zod_1.z.string().regex(/^[A-Z]{2}$/),
+    'x-ingredia-app-build': zod_1.z
         .string()
-        .regex(/^[A-Z]{2}$/)
-        .optional(),
-});
-exports.verifyMobilePurchaseSchema = zod_1.z.object({
-    provider: zod_1.z.enum([
-        SubscriptionProvider.APPLE,
-        SubscriptionProvider.GOOGLE_PLAY,
-    ]),
+        .regex(/^[1-9]\d*$/)
+        .transform(Number)
+        .pipe(zod_1.z.number().int().positive().safe()),
+})
+    .transform((headers) => ({
+    platform: headers['x-ingredia-platform'],
+    distribution: headers['x-ingredia-distribution'],
+    storefront: headers['x-ingredia-storefront'],
+    appBuild: headers['x-ingredia-app-build'],
+}));
+exports.idempotencyHeadersSchema = zod_1.z
+    .object({ 'idempotency-key': zod_1.z.string().uuid() })
+    .transform((headers) => ({ idempotencyKey: headers['idempotency-key'] }));
+exports.verifyAppStoreTransactionSchema = zod_1.z.object({
     planId: zod_1.z.string().trim().min(1).max(200),
-    transactionToken: zod_1.z.string().trim().min(1).max(16_384),
+    signedTransactionInfo: zod_1.z.string().trim().min(1).max(16_384),
 });
-exports.restoreMobilePurchasesSchema = zod_1.z.object({
+exports.verifyGooglePlayPurchaseSchema = zod_1.z.object({
+    planId: zod_1.z.string().trim().min(1).max(200),
+    purchaseToken: zod_1.z.string().trim().min(1).max(16_384),
+});
+exports.restorePurchasesSchema = zod_1.z.object({
     provider: zod_1.z.enum([
-        SubscriptionProvider.APPLE,
+        SubscriptionProvider.APP_STORE,
         SubscriptionProvider.GOOGLE_PLAY,
     ]),
+    purchases: zod_1.z
+        .array(zod_1.z.object({
+        planId: zod_1.z.string().trim().min(1).max(200),
+        productReference: zod_1.z.string().trim().min(1).max(500),
+        transactionToken: zod_1.z.string().trim().min(1).max(16_384),
+    }))
+        .max(100),
 });
 exports.cursorPageSchema = zod_1.z.object(cursorFields);
 exports.createSourceSchema = zod_1.z.object({

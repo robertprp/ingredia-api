@@ -27,6 +27,7 @@ export interface BillingRepositoryPort {
     provider: SubscriptionProvider,
     environment: SubscriptionEnvironment,
   ): Promise<BillingProductReference | null>;
+  getOrCreateAppStoreAccountToken(userId: string): Promise<string>;
   claimWebhookEvent(input: {
     id: string;
     provider: SubscriptionProvider;

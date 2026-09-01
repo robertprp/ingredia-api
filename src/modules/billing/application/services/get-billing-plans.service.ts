@@ -29,7 +29,10 @@ export class GetBillingPlansService {
       purchasable:
         plan.isPurchasable && (plan.productReferences?.length ?? 0) > 0,
       providerReferences: (plan.productReferences ?? []).map((reference) => ({
-        provider: SubscriptionProvider[reference.provider],
+        provider:
+          reference.provider === 'APPLE'
+            ? SubscriptionProvider.APP_STORE
+            : SubscriptionProvider[reference.provider],
         productId: reference.productId,
       })),
     }));

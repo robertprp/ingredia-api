@@ -35,6 +35,7 @@ export declare enum ScanStatus {
 }
 export declare enum SubscriptionStatus {
     FREE = "FREE",
+    PENDING = "PENDING",
     TRIALING = "TRIALING",
     ACTIVE = "ACTIVE",
     PAST_DUE = "PAST_DUE",
@@ -43,7 +44,7 @@ export declare enum SubscriptionStatus {
 }
 export declare enum SubscriptionProvider {
     STRIPE = "STRIPE",
-    APPLE = "APPLE",
+    APP_STORE = "APP_STORE",
     GOOGLE_PLAY = "GOOGLE_PLAY"
 }
 export declare enum BillingClientPlatform {
@@ -52,9 +53,26 @@ export declare enum BillingClientPlatform {
     ANDROID = "ANDROID"
 }
 export declare enum BillingDistributionChannel {
-    WEB_DIRECT = "WEB_DIRECT",
+    APP_STORE = "APP_STORE",
+    GOOGLE_PLAY = "GOOGLE_PLAY",
+    DIRECT = "DIRECT",
+    WEB = "WEB"
+}
+export declare enum BillingChannel {
+    STRIPE = "STRIPE",
     APP_STORE = "APP_STORE",
     GOOGLE_PLAY = "GOOGLE_PLAY"
+}
+export declare enum BillingPriceSource {
+    STORE = "STORE",
+    SERVER = "SERVER"
+}
+export declare enum BillingEligibilityReasonCode {
+    APP_STORE_DIGITAL_FEATURES = "APP_STORE_DIGITAL_FEATURES",
+    GOOGLE_PLAY_DIGITAL_FEATURES = "GOOGLE_PLAY_DIGITAL_FEATURES",
+    WEB_DIGITAL_FEATURES = "WEB_DIGITAL_FEATURES",
+    EXISTING_SUBSCRIPTION = "EXISTING_SUBSCRIPTION",
+    DISTRIBUTION_MISMATCH = "DISTRIBUTION_MISMATCH"
 }
 export declare enum BillingPurchaseAction {
     NONE = "NONE",
@@ -350,19 +368,28 @@ export interface UserSubscriptionResponse {
     currentPeriodEndsAt: ISODateTime | null;
     cancelAtPeriodEnd: boolean;
 }
-export interface BillingEligibilityQuery {
+export interface BillingEligibilityHeaders {
     platform: BillingClientPlatform;
-    distributionChannel: BillingDistributionChannel;
-    storefront?: string;
+    distribution: BillingDistributionChannel;
+    storefront: string;
+    appBuild: number;
 }
 export interface BillingEligibilityResponse {
+    channel: BillingChannel;
+    reasonCode: BillingEligibilityReasonCode;
     policyVersion: string;
-    purchaseAllowed: boolean;
-    purchaseProvider: SubscriptionProvider | null;
-    purchaseAction: BillingPurchaseAction;
-    restoreAction: BillingRestoreAction;
-    managementAction: BillingManagementAction;
-    reason: BillingEligibilityReason;
+    plans: BillingEligibilityPlan[];
+    restoreSupported: boolean;
+    managementChannel: BillingChannel;
+    appAccountToken?: string;
+}
+export interface BillingEligibilityPlan {
+    planId: string;
+    productReference: string;
+    displayPrice: string | null;
+    displayPriceSource: BillingPriceSource;
+    currency?: string;
+    amountMinor?: number;
 }
 export interface CreateCheckoutSessionRequest {
     planId: string;
@@ -378,13 +405,25 @@ export interface CreateBillingPortalSessionRequest {
 export interface CreateBillingPortalSessionResponse {
     url: string;
 }
-export interface VerifyMobilePurchaseRequest {
-    provider: SubscriptionProvider.APPLE | SubscriptionProvider.GOOGLE_PLAY;
+export interface VerifyAppStoreTransactionRequest {
     planId: string;
+    signedTransactionInfo: string;
+}
+export interface VerifyGooglePlayPurchaseRequest {
+    planId: string;
+    purchaseToken: string;
+}
+export interface RestorePurchaseProof {
+    planId: string;
+    productReference: string;
     transactionToken: string;
 }
-export interface RestoreMobilePurchasesRequest {
-    provider: SubscriptionProvider.APPLE | SubscriptionProvider.GOOGLE_PLAY;
+export interface RestorePurchasesRequest {
+    provider: SubscriptionProvider.APP_STORE | SubscriptionProvider.GOOGLE_PLAY;
+    purchases: RestorePurchaseProof[];
+}
+export interface IdempotencyHeaders {
+    idempotencyKey: string;
 }
 export interface UserProfileResponse {
     id: UserId;
@@ -545,9 +584,11 @@ export declare const createDataExportSchema: z.ZodType<CreateDataExportRequest>;
 export declare const deleteAccountSchema: z.ZodType<DeleteAccountRequest>;
 export declare const createCheckoutSessionSchema: z.ZodType<CreateCheckoutSessionRequest>;
 export declare const createBillingPortalSessionSchema: z.ZodType<CreateBillingPortalSessionRequest>;
-export declare const billingEligibilityQuerySchema: z.ZodType<BillingEligibilityQuery>;
-export declare const verifyMobilePurchaseSchema: z.ZodType<VerifyMobilePurchaseRequest>;
-export declare const restoreMobilePurchasesSchema: z.ZodType<RestoreMobilePurchasesRequest>;
+export declare const billingEligibilityHeadersSchema: z.ZodType<BillingEligibilityHeaders>;
+export declare const idempotencyHeadersSchema: z.ZodType<IdempotencyHeaders>;
+export declare const verifyAppStoreTransactionSchema: z.ZodType<VerifyAppStoreTransactionRequest>;
+export declare const verifyGooglePlayPurchaseSchema: z.ZodType<VerifyGooglePlayPurchaseRequest>;
+export declare const restorePurchasesSchema: z.ZodType<RestorePurchasesRequest>;
 export declare const cursorPageSchema: z.ZodObject<{
     cursor: z.ZodOptional<z.ZodString>;
     limit: z.ZodDefault<z.ZodCoercedNumber<unknown>>;

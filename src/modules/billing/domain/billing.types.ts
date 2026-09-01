@@ -10,7 +10,7 @@ export type SubscriptionProvider = 'STRIPE' | 'APPLE' | 'GOOGLE_PLAY';
 export type SubscriptionEnvironment = 'SANDBOX' | 'PRODUCTION';
 export type BillingClientPlatform = 'WEB' | 'IOS' | 'ANDROID';
 export type BillingDistributionChannel =
-  'WEB_DIRECT' | 'APP_STORE' | 'GOOGLE_PLAY';
+  'APP_STORE' | 'GOOGLE_PLAY' | 'DIRECT' | 'WEB';
 export type BillingPurchaseAction =
   'NONE' | 'STRIPE_CHECKOUT' | 'APP_STORE_PURCHASE' | 'GOOGLE_PLAY_PURCHASE';
 export type BillingRestoreAction =
@@ -24,7 +24,7 @@ export type BillingManagementAction =
 export type BillingEligibilityReason =
   'ELIGIBLE' | 'CHANNEL_MISMATCH' | 'EXISTING_SUBSCRIPTION';
 export type SubscriptionStatus =
-  'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'EXPIRED';
+  'PENDING' | 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'EXPIRED';
 
 export interface BillingPlan {
   id: string;

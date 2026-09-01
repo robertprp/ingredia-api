@@ -8,24 +8,25 @@ datasource db {
 }
 
 model User {
-  id                  String                  @id
-  name                String
-  email               String                  @unique
-  emailVerified       Boolean                 @default(false)
-  image               String?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  username            String?                 @unique
-  displayUsername     String?
-  accounts            Account[]
-  accountDeletion     accountDeletionRequest?
-  analyses            analysis[]
-  billingSubscription billingSubscription[]
-  comparisons         comparison[]
-  scans               scan[]
-  scanUsage           scanUsage[]
-  sessions            Session[]
-  preference          userPreference?
+  id                   String                  @id
+  name                 String
+  email                String                  @unique
+  emailVerified        Boolean                 @default(false)
+  image                String?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  username             String?                 @unique
+  displayUsername      String?
+  accounts             Account[]
+  accountDeletion      accountDeletionRequest?
+  analyses             analysis[]
+  billingSubscription  billingSubscription[]
+  appStoreAccountToken appStoreAccountToken?
+  comparisons          comparison[]
+  scans                scan[]
+  scanUsage            scanUsage[]
+  sessions             Session[]
+  preference           userPreference?
 
   @@map("user")
 }
@@ -306,6 +307,13 @@ model billingSubscription {
   @@index([userId, updatedAt], map: "billing_subscription_user_id_updated_at_idx")
 }
 
+model appStoreAccountToken {
+  userId    String   @id
+  token     String   @unique @db.Uuid
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model informationSource {
   id                   String                 @id(map: "information_source_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   key                  String                 @unique(map: "information_source_key_key")
@@ -343,6 +351,7 @@ enum billingProvider {
 }
 
 enum billingSubscriptionStatus {
+  PENDING
   TRIALING
   ACTIVE
   PAST_DUE

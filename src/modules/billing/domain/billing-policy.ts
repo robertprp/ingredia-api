@@ -1,123 +1,83 @@
-import {
-  BillingClientPlatform,
-  BillingDistributionChannel,
-  BillingEligibilityReason,
-  BillingManagementAction,
-  BillingPurchaseAction,
-  BillingRestoreAction,
-  BillingSubscription,
-  SubscriptionProvider,
-} from './billing.types';
+import { BillingClientPlatform, BillingSubscription } from './billing.types';
 
-export const BILLING_POLICY_VERSION = '2026-08-31-conservative-v1';
+export const BILLING_POLICY_VERSION = '2026-08-31.1';
+
+export type BillingChannel = 'STRIPE' | 'APP_STORE' | 'GOOGLE_PLAY';
+export type BillingEligibilityReasonCode =
+  | 'APP_STORE_DIGITAL_FEATURES'
+  | 'GOOGLE_PLAY_DIGITAL_FEATURES'
+  | 'WEB_DIGITAL_FEATURES'
+  | 'EXISTING_SUBSCRIPTION'
+  | 'DISTRIBUTION_MISMATCH';
 
 export interface BillingPolicyInput {
   platform: BillingClientPlatform;
-  distributionChannel: BillingDistributionChannel;
+  distribution: 'APP_STORE' | 'GOOGLE_PLAY' | 'DIRECT' | 'WEB';
   entitledSubscription: BillingSubscription | null;
   currentSubscription: BillingSubscription | null;
 }
 
 export interface BillingPolicyDecision {
+  channel: BillingChannel;
+  reasonCode: BillingEligibilityReasonCode;
   policyVersion: string;
+  restoreSupported: boolean;
+  managementChannel: BillingChannel;
   purchaseAllowed: boolean;
-  purchaseProvider: SubscriptionProvider | null;
-  purchaseAction: BillingPurchaseAction;
-  restoreAction: BillingRestoreAction;
-  managementAction: BillingManagementAction;
-  reason: BillingEligibilityReason;
 }
 
 export function decideBillingPolicy(
   input: BillingPolicyInput,
 ): BillingPolicyDecision {
-  const channel = channelDecision(input.platform, input.distributionChannel);
-  const managementAction = managementDecision(
-    input.currentSubscription,
+  const channel = defaultChannel(input.platform);
+  const distributionMatches = isStandardDistribution(
     input.platform,
-    input.distributionChannel,
+    input.distribution,
   );
-
-  if (input.entitledSubscription !== null) {
-    return {
-      ...channel,
-      purchaseAllowed: false,
-      purchaseProvider: null,
-      purchaseAction: 'NONE',
-      managementAction,
-      reason: 'EXISTING_SUBSCRIPTION',
-    };
-  }
-
-  return { ...channel, managementAction };
-}
-
-function channelDecision(
-  platform: BillingClientPlatform,
-  distributionChannel: BillingDistributionChannel,
-): Omit<BillingPolicyDecision, 'managementAction'> {
-  const common = { policyVersion: BILLING_POLICY_VERSION };
-
-  if (platform === 'WEB' && distributionChannel === 'WEB_DIRECT') {
-    return {
-      ...common,
-      purchaseAllowed: true,
-      purchaseProvider: 'STRIPE',
-      purchaseAction: 'STRIPE_CHECKOUT',
-      restoreAction: 'NONE',
-      reason: 'ELIGIBLE',
-    };
-  }
-
-  if (platform === 'IOS' && distributionChannel === 'APP_STORE') {
-    return {
-      ...common,
-      purchaseAllowed: true,
-      purchaseProvider: 'APPLE',
-      purchaseAction: 'APP_STORE_PURCHASE',
-      restoreAction: 'APP_STORE_RESTORE',
-      reason: 'ELIGIBLE',
-    };
-  }
-
-  if (platform === 'ANDROID' && distributionChannel === 'GOOGLE_PLAY') {
-    return {
-      ...common,
-      purchaseAllowed: true,
-      purchaseProvider: 'GOOGLE_PLAY',
-      purchaseAction: 'GOOGLE_PLAY_PURCHASE',
-      restoreAction: 'GOOGLE_PLAY_RESTORE',
-      reason: 'ELIGIBLE',
-    };
-  }
-
+  const existingSubscription =
+    input.entitledSubscription !== null ||
+    input.currentSubscription?.status === 'PENDING' ||
+    input.currentSubscription?.status === 'PAST_DUE';
   return {
-    ...common,
-    purchaseAllowed: false,
-    purchaseProvider: null,
-    purchaseAction: 'NONE',
-    restoreAction: 'NONE',
-    reason: 'CHANNEL_MISMATCH',
+    channel,
+    reasonCode: existingSubscription
+      ? 'EXISTING_SUBSCRIPTION'
+      : distributionMatches
+        ? defaultReason(channel)
+        : 'DISTRIBUTION_MISMATCH',
+    policyVersion: BILLING_POLICY_VERSION,
+    restoreSupported: channel !== 'STRIPE',
+    managementChannel: managementChannel(input.currentSubscription, channel),
+    purchaseAllowed: !existingSubscription && distributionMatches,
   };
 }
 
-function managementDecision(
-  subscription: BillingSubscription | null,
+function isStandardDistribution(
   platform: BillingClientPlatform,
-  distributionChannel: BillingDistributionChannel,
-): BillingManagementAction {
-  if (subscription === null || subscription.revokedAt !== null) {
-    return 'NONE';
-  }
+  distribution: 'APP_STORE' | 'GOOGLE_PLAY' | 'DIRECT' | 'WEB',
+): boolean {
+  if (platform === 'IOS') return distribution === 'APP_STORE';
+  if (platform === 'ANDROID') return distribution === 'GOOGLE_PLAY';
+  return distribution === 'DIRECT' || distribution === 'WEB';
+}
 
-  if (subscription.provider === 'APPLE') {
-    return 'APP_STORE_SUBSCRIPTIONS';
-  }
-  if (subscription.provider === 'GOOGLE_PLAY') {
-    return 'GOOGLE_PLAY_SUBSCRIPTIONS';
-  }
-  if (platform === 'WEB' && distributionChannel === 'WEB_DIRECT') {
-    return 'STRIPE_PORTAL';
-  }
-  return 'CONTACT_SUPPORT';
+function defaultChannel(platform: BillingClientPlatform): BillingChannel {
+  if (platform === 'IOS') return 'APP_STORE';
+  if (platform === 'ANDROID') return 'GOOGLE_PLAY';
+  return 'STRIPE';
+}
+
+function defaultReason(channel: BillingChannel): BillingEligibilityReasonCode {
+  if (channel === 'APP_STORE') return 'APP_STORE_DIGITAL_FEATURES';
+  if (channel === 'GOOGLE_PLAY') return 'GOOGLE_PLAY_DIGITAL_FEATURES';
+  return 'WEB_DIGITAL_FEATURES';
+}
+
+function managementChannel(
+  subscription: BillingSubscription | null,
+  fallback: BillingChannel,
+): BillingChannel {
+  if (subscription === null || subscription.revokedAt !== null) return fallback;
+  if (subscription.provider === 'APPLE') return 'APP_STORE';
+  return subscription.provider;
 }

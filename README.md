@@ -308,19 +308,21 @@ classified as low toxicity; it is not a medical or regulatory safety claim.
 
 ## Provider-neutral billing
 
-The first billing phase exposes these endpoints:
+The billing API exposes these authenticated endpoints:
 
-- `GET /billing/plans` lists public plans and is anonymous;
-- `GET /billing/eligibility` returns the authenticated user's allowed purchase,
-  restore, and management actions for a client platform/distribution channel;
-- `GET /billing/subscription` returns the authenticated user's current provider
+- `GET /api/v1/billing/plans` lists public plans;
+- `GET /api/v1/billing/eligibility` returns the server-selected purchase,
+  restore, and management channel;
+- `GET /api/v1/billing/subscription` returns the authenticated user's current provider
   state and verified access period;
 - `GET /me/entitlements` projects provider-independent capabilities.
 
-The initial policy is fail-closed: Stripe is offered only to `WEB` builds using
-`WEB_DIRECT`, Apple only to `IOS`/`APP_STORE`, and Google Play only to
-`ANDROID`/`GOOGLE_PLAY`. Until pricing is approved, the seeded Plus plan has no
-price and reports `purchasable: false`.
+Eligibility requires `X-Ingredia-Platform`, `X-Ingredia-Distribution`,
+`X-Ingredia-Storefront`, and `X-Ingredia-App-Build`. These headers are validated
+hints, not proof. The policy fails closed on mismatched platform/distribution
+pairs: iOS defaults to `APP_STORE`, Android to `GOOGLE_PLAY`, and Web to Stripe.
+Store prices are localized by the native client; Stripe currency and minor-unit
+amounts are read from the configured Stripe Price.
 
 Seed plans after applying migrations:
 
@@ -356,7 +358,8 @@ GET    /api/v1/billing/eligibility
 GET    /api/v1/billing/plans
 GET    /api/v1/billing/subscription
 POST   /api/v1/billing/stripe/subscriptions
-POST   /api/v1/billing/mobile-purchases/verify
+POST   /api/v1/billing/app-store/transactions/verify
+POST   /api/v1/billing/google-play/purchases/verify
 POST   /api/v1/billing/restore
 POST   /api/v1/webhooks/stripe
 POST   /api/v1/webhooks/app-store
@@ -380,6 +383,13 @@ normalized provider state expected by the billing adapter. If a verifier or
 provider secret is absent, purchases fail closed and no entitlement is written.
 Seed provider product references with the corresponding `*_PRODUCT_ID` or
 Stripe price ID environment variables.
+
+Native verification and restoration require a UUID `Idempotency-Key`. App Store
+verification accepts StoreKit 2 `signedTransactionInfo`; Google Play accepts a
+purchase token and is acknowledged by the backend only after verified state is
+persisted. Restoration is store-driven and verifies every submitted proof;
+an empty proof list never creates or reactivates a subscription. Public provider
+names are `APP_STORE` and `GOOGLE_PLAY`.
 
 ## Project layout
 

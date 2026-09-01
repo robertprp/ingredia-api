@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   billingPlan as PrismaBillingPlan,
   billingSubscription as PrismaBillingSubscription,
@@ -161,6 +162,16 @@ export class PrismaBillingRepository implements BillingRepositoryPort {
         productId: true,
       },
     });
+  }
+
+  async getOrCreateAppStoreAccountToken(userId: string): Promise<string> {
+    const record = await this.prisma.appStoreAccountToken.upsert({
+      where: { userId },
+      update: {},
+      create: { userId, token: randomUUID() },
+      select: { token: true },
+    });
+    return record.token;
   }
 
   async claimWebhookEvent(input: {

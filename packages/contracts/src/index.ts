@@ -41,6 +41,7 @@ export enum ScanStatus {
 
 export enum SubscriptionStatus {
   FREE = 'FREE',
+  PENDING = 'PENDING',
   TRIALING = 'TRIALING',
   ACTIVE = 'ACTIVE',
   PAST_DUE = 'PAST_DUE',
@@ -50,7 +51,7 @@ export enum SubscriptionStatus {
 
 export enum SubscriptionProvider {
   STRIPE = 'STRIPE',
-  APPLE = 'APPLE',
+  APP_STORE = 'APP_STORE',
   GOOGLE_PLAY = 'GOOGLE_PLAY',
 }
 
@@ -61,9 +62,29 @@ export enum BillingClientPlatform {
 }
 
 export enum BillingDistributionChannel {
-  WEB_DIRECT = 'WEB_DIRECT',
   APP_STORE = 'APP_STORE',
   GOOGLE_PLAY = 'GOOGLE_PLAY',
+  DIRECT = 'DIRECT',
+  WEB = 'WEB',
+}
+
+export enum BillingChannel {
+  STRIPE = 'STRIPE',
+  APP_STORE = 'APP_STORE',
+  GOOGLE_PLAY = 'GOOGLE_PLAY',
+}
+
+export enum BillingPriceSource {
+  STORE = 'STORE',
+  SERVER = 'SERVER',
+}
+
+export enum BillingEligibilityReasonCode {
+  APP_STORE_DIGITAL_FEATURES = 'APP_STORE_DIGITAL_FEATURES',
+  GOOGLE_PLAY_DIGITAL_FEATURES = 'GOOGLE_PLAY_DIGITAL_FEATURES',
+  WEB_DIGITAL_FEATURES = 'WEB_DIGITAL_FEATURES',
+  EXISTING_SUBSCRIPTION = 'EXISTING_SUBSCRIPTION',
+  DISTRIBUTION_MISMATCH = 'DISTRIBUTION_MISMATCH',
 }
 
 export enum BillingPurchaseAction {
@@ -406,20 +427,30 @@ export interface UserSubscriptionResponse {
   cancelAtPeriodEnd: boolean;
 }
 
-export interface BillingEligibilityQuery {
+export interface BillingEligibilityHeaders {
   platform: BillingClientPlatform;
-  distributionChannel: BillingDistributionChannel;
-  storefront?: string;
+  distribution: BillingDistributionChannel;
+  storefront: string;
+  appBuild: number;
 }
 
 export interface BillingEligibilityResponse {
+  channel: BillingChannel;
+  reasonCode: BillingEligibilityReasonCode;
   policyVersion: string;
-  purchaseAllowed: boolean;
-  purchaseProvider: SubscriptionProvider | null;
-  purchaseAction: BillingPurchaseAction;
-  restoreAction: BillingRestoreAction;
-  managementAction: BillingManagementAction;
-  reason: BillingEligibilityReason;
+  plans: BillingEligibilityPlan[];
+  restoreSupported: boolean;
+  managementChannel: BillingChannel;
+  appAccountToken?: string;
+}
+
+export interface BillingEligibilityPlan {
+  planId: string;
+  productReference: string;
+  displayPrice: string | null;
+  displayPriceSource: BillingPriceSource;
+  currency?: string;
+  amountMinor?: number;
 }
 
 export interface CreateCheckoutSessionRequest {
@@ -440,14 +471,29 @@ export interface CreateBillingPortalSessionResponse {
   url: string;
 }
 
-export interface VerifyMobilePurchaseRequest {
-  provider: SubscriptionProvider.APPLE | SubscriptionProvider.GOOGLE_PLAY;
+export interface VerifyAppStoreTransactionRequest {
   planId: string;
+  signedTransactionInfo: string;
+}
+
+export interface VerifyGooglePlayPurchaseRequest {
+  planId: string;
+  purchaseToken: string;
+}
+
+export interface RestorePurchaseProof {
+  planId: string;
+  productReference: string;
   transactionToken: string;
 }
 
-export interface RestoreMobilePurchasesRequest {
-  provider: SubscriptionProvider.APPLE | SubscriptionProvider.GOOGLE_PLAY;
+export interface RestorePurchasesRequest {
+  provider: SubscriptionProvider.APP_STORE | SubscriptionProvider.GOOGLE_PLAY;
+  purchases: RestorePurchaseProof[];
+}
+
+export interface IdempotencyHeaders {
+  idempotencyKey: string;
 }
 
 export interface UserProfileResponse {
@@ -720,32 +766,56 @@ export const createCheckoutSessionSchema: z.ZodType<CreateCheckoutSessionRequest
 export const createBillingPortalSessionSchema: z.ZodType<CreateBillingPortalSessionRequest> =
   z.object({ returnUrl: z.url() });
 
-export const billingEligibilityQuerySchema: z.ZodType<BillingEligibilityQuery> =
-  z.object({
-    platform: z.nativeEnum(BillingClientPlatform),
-    distributionChannel: z.nativeEnum(BillingDistributionChannel),
-    storefront: z
-      .string()
-      .regex(/^[A-Z]{2}$/)
-      .optional(),
-  });
+export const billingEligibilityHeadersSchema: z.ZodType<BillingEligibilityHeaders> =
+  z
+    .object({
+      'x-ingredia-platform': z.nativeEnum(BillingClientPlatform),
+      'x-ingredia-distribution': z.nativeEnum(BillingDistributionChannel),
+      'x-ingredia-storefront': z.string().regex(/^[A-Z]{2}$/),
+      'x-ingredia-app-build': z
+        .string()
+        .regex(/^[1-9]\d*$/)
+        .transform(Number)
+        .pipe(z.number().int().positive().safe()),
+    })
+    .transform((headers) => ({
+      platform: headers['x-ingredia-platform'],
+      distribution: headers['x-ingredia-distribution'],
+      storefront: headers['x-ingredia-storefront'],
+      appBuild: headers['x-ingredia-app-build'],
+    }));
 
-export const verifyMobilePurchaseSchema: z.ZodType<VerifyMobilePurchaseRequest> =
+export const idempotencyHeadersSchema: z.ZodType<IdempotencyHeaders> = z
+  .object({ 'idempotency-key': z.string().uuid() })
+  .transform((headers) => ({ idempotencyKey: headers['idempotency-key'] }));
+
+export const verifyAppStoreTransactionSchema: z.ZodType<VerifyAppStoreTransactionRequest> =
   z.object({
-    provider: z.enum([
-      SubscriptionProvider.APPLE,
-      SubscriptionProvider.GOOGLE_PLAY,
-    ]),
     planId: z.string().trim().min(1).max(200),
-    transactionToken: z.string().trim().min(1).max(16_384),
+    signedTransactionInfo: z.string().trim().min(1).max(16_384),
   });
 
-export const restoreMobilePurchasesSchema: z.ZodType<RestoreMobilePurchasesRequest> =
+export const verifyGooglePlayPurchaseSchema: z.ZodType<VerifyGooglePlayPurchaseRequest> =
+  z.object({
+    planId: z.string().trim().min(1).max(200),
+    purchaseToken: z.string().trim().min(1).max(16_384),
+  });
+
+export const restorePurchasesSchema: z.ZodType<RestorePurchasesRequest> =
   z.object({
     provider: z.enum([
-      SubscriptionProvider.APPLE,
+      SubscriptionProvider.APP_STORE,
       SubscriptionProvider.GOOGLE_PLAY,
     ]),
+    purchases: z
+      .array(
+        z.object({
+          planId: z.string().trim().min(1).max(200),
+          productReference: z.string().trim().min(1).max(500),
+          transactionToken: z.string().trim().min(1).max(16_384),
+        }),
+      )
+      .max(100),
   });
 
 export const cursorPageSchema = z.object(cursorFields);

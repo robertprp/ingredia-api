@@ -48,6 +48,8 @@ export class GetUserSubscriptionService {
   }
 
   private toProvider(subscription: BillingSubscription): SubscriptionProvider {
-    return SubscriptionProvider[subscription.provider];
+    return subscription.provider === 'APPLE'
+      ? SubscriptionProvider.APP_STORE
+      : SubscriptionProvider[subscription.provider];
   }
 }
