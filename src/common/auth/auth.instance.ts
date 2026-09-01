@@ -13,13 +13,15 @@ export const createAuth = (prisma: PrismaClient) =>
       sentinel(),
       username(),
       magicLink({
-        sendMagicLink: async ({ token, email, url }) => {
+        sendMagicLink: async ({ email, url }) => {
           const resend = new Resend(process.env.RESEND_API_KEY);
           await resend.emails.send({
             from: 'no-reply@ingredia.fit',
             to: email,
-            subject: 'Magic Link',
-            html: `<p>Your magic link: <a href="${url}">${url}</a></p>`,
+            template: {
+              id: 'ingredia-sign-in',
+              variables: { MAGIC_LINK: url }
+            }
           });
         },
       }),

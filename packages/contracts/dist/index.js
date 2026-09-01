@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.restoreAdditiveRevisionSchema = exports.unpublishAdditiveSchema = exports.publishAdditiveSchema = exports.updateAdditiveDraftSchema = exports.retryImportJobSchema = exports.cancelImportJobSchema = exports.createImportJobSchema = exports.updateSourceSchema = exports.createSourceSchema = exports.cursorPageSchema = exports.restoreMobilePurchasesSchema = exports.verifyMobilePurchaseSchema = exports.billingEligibilityQuerySchema = exports.createBillingPortalSessionSchema = exports.createCheckoutSessionSchema = exports.deleteAccountSchema = exports.createDataExportSchema = exports.registerDeviceSchema = exports.updateUserProfileSchema = exports.createComparisonSchema = exports.updateUserPreferencesSchema = exports.searchAdditivesSchema = exports.listUserAnalysesSchema = exports.reanalyseProductSchema = exports.retryScanSchema = exports.correctScanIngredientsSchema = exports.createTextScanSchema = exports.additiveCodeSchema = exports.UnrecognizedIngredientReason = exports.ValidationErrorCode = exports.ApiErrorCode = exports.UserRole = exports.EvidenceStatus = exports.ImportJobStatus = exports.BillingEligibilityReason = exports.BillingManagementAction = exports.BillingRestoreAction = exports.BillingPurchaseAction = exports.BillingDistributionChannel = exports.BillingClientPlatform = exports.SubscriptionProvider = exports.SubscriptionStatus = exports.ScanStatus = exports.ProductRiskLevel = exports.PregnancyStatus = exports.ToxicityLevel = void 0;
+exports.restoreAdditiveRevisionSchema = exports.unpublishAdditiveSchema = exports.publishAdditiveSchema = exports.updateAdditiveDraftSchema = exports.retryImportJobSchema = exports.cancelImportJobSchema = exports.createImportJobSchema = exports.updateSourceSchema = exports.createSourceSchema = exports.cursorPageSchema = exports.restoreMobilePurchasesSchema = exports.verifyMobilePurchaseSchema = exports.billingEligibilityQuerySchema = exports.createBillingPortalSessionSchema = exports.createCheckoutSessionSchema = exports.deleteAccountSchema = exports.createDataExportSchema = exports.registerDeviceSchema = exports.updateUserProfileSchema = exports.updateSavedAnalysisSchema = exports.createComparisonSchema = exports.updateUserPreferencesSchema = exports.searchAdditivesSchema = exports.listUserAnalysesSchema = exports.reanalyseProductSchema = exports.retryScanSchema = exports.correctScanIngredientsSchema = exports.createTextScanSchema = exports.additiveCodeSchema = exports.UnrecognizedIngredientReason = exports.ValidationErrorCode = exports.ApiErrorCode = exports.UserRole = exports.EvidenceStatus = exports.ImportJobStatus = exports.BillingEligibilityReason = exports.BillingManagementAction = exports.BillingRestoreAction = exports.BillingPurchaseAction = exports.BillingDistributionChannel = exports.BillingClientPlatform = exports.SubscriptionProvider = exports.SubscriptionStatus = exports.ScanStatus = exports.ProductRiskLevel = exports.PregnancyStatus = exports.ToxicityLevel = void 0;
 const zod_1 = require("zod");
 var ToxicityLevel;
 (function (ToxicityLevel) {
@@ -180,6 +180,7 @@ exports.createComparisonSchema = zod_1.z.object({
         .tuple([zod_1.z.string().uuid(), zod_1.z.string().uuid()])
         .refine(([left, right]) => left !== right, 'Analyses must be different'),
 });
+exports.updateSavedAnalysisSchema = zod_1.z.object({ saved: zod_1.z.boolean() });
 exports.updateUserProfileSchema = zod_1.z
     .object({
     name: zod_1.z.string().trim().min(1).max(120).optional(),
@@ -219,7 +220,7 @@ exports.verifyMobilePurchaseSchema = zod_1.z.object({
         SubscriptionProvider.APPLE,
         SubscriptionProvider.GOOGLE_PLAY,
     ]),
-    productId: zod_1.z.string().trim().min(1).max(200),
+    planId: zod_1.z.string().trim().min(1).max(200),
     transactionToken: zod_1.z.string().trim().min(1).max(16_384),
 });
 exports.restoreMobilePurchasesSchema = zod_1.z.object({

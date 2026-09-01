@@ -53,10 +53,15 @@ export function selectEntitledSubscription(
   );
 }
 
-export function projectEntitlements(plan: BillingPlan): EntitlementProjection {
+export function projectEntitlements(
+  plan: BillingPlan,
+  consumedScans = 0,
+): EntitlementProjection {
   const capabilities = new Set(plan.capabilities);
   const unlimitedScans = capabilities.has(billingCapabilities.unlimitedScans);
-  const scansRemaining = unlimitedScans ? null : plan.monthlyScanLimit;
+  const scansRemaining = unlimitedScans
+    ? null
+    : Math.max(0, (plan.monthlyScanLimit ?? 0) - consumedScans);
 
   return {
     scansRemaining,

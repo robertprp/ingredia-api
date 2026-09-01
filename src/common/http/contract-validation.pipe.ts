@@ -37,4 +37,3 @@ export class ContractValidationPipe<TContract>
     return ValidationErrorCode.INVALID;
   }
 }
-

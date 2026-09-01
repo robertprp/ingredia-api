@@ -8,21 +8,37 @@ import { RecordVerifiedSubscriptionService } from './application/services/record
 import { PrismaBillingRepository } from './infrastructure/persistence/prisma-billing.repository';
 import { BillingController } from './presentation/http/billing.controller';
 import { EntitlementsController } from './presentation/http/entitlements.controller';
+import { BillingPurchasesService } from './application/services/billing-purchases.service';
+import { BillingWebhooksService } from './application/services/billing-webhooks.service';
+import { BILLING_PROVIDER } from './application/ports/billing-provider.port';
+import { HttpBillingProviderAdapter } from './infrastructure/providers/http-billing-provider.adapter';
+import { BillingWebhooksController } from './presentation/http/billing-webhooks.controller';
 
 @Module({
-  controllers: [BillingController, EntitlementsController],
+  controllers: [
+    BillingController,
+    EntitlementsController,
+    BillingWebhooksController,
+  ],
   providers: [
     GetBillingEligibilityService,
     GetBillingPlansService,
     GetUserEntitlementsService,
     GetUserSubscriptionService,
     RecordVerifiedSubscriptionService,
+    BillingPurchasesService,
+    BillingWebhooksService,
+    HttpBillingProviderAdapter,
     PrismaBillingRepository,
     {
       provide: BILLING_REPOSITORY,
       useExisting: PrismaBillingRepository,
     },
+    {
+      provide: BILLING_PROVIDER,
+      useExisting: HttpBillingProviderAdapter,
+    },
   ],
-  exports: [RecordVerifiedSubscriptionService],
+  exports: [GetUserEntitlementsService, RecordVerifiedSubscriptionService],
 })
 export class BillingModule {}

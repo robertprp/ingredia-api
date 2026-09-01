@@ -37,6 +37,14 @@ export interface BillingPlan {
   currency: string | null;
   isPublic: boolean;
   isPurchasable: boolean;
+  productReferences?: BillingProductReference[];
+}
+
+export interface BillingProductReference {
+  planId: string;
+  provider: SubscriptionProvider;
+  environment: SubscriptionEnvironment;
+  productId: string;
 }
 
 export interface BillingSubscription {

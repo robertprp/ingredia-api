@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { ADDITIVE_REPOSITORY } from '../ports/additive.repository.port';
 import type { AdditiveRepositoryPort } from '../ports/additive.repository.port';
 import {
+  CatalogAdditive,
   normalizeENumber,
   normalizeSearchText,
   toxicityRank,
@@ -10,6 +11,19 @@ import {
 export type ProductToxicityAssessment =
   'TOXIC' | 'CAUTION' | 'NOT_TOXIC' | 'UNKNOWN';
 
+export interface IngredientAnalysisResult {
+  assessment: ProductToxicityAssessment;
+  analyzedForPregnancy: boolean;
+  pregnancyAssessment:
+    | 'NOT_RECOMMENDED'
+    | 'INSUFFICIENT_DATA'
+    | 'NO_WARNING_IDENTIFIED'
+    | 'NOT_REQUESTED';
+  detectedAdditives: CatalogAdditive[];
+  unmatchedENumbers: string[];
+  disclaimer: string;
+}
+
 @Injectable()
 export class AnalyzeIngredientsService {
   constructor(
@@ -17,7 +31,7 @@ export class AnalyzeIngredientsService {
     private readonly repository: AdditiveRepositoryPort,
   ) {}
 
-  async execute(input: unknown) {
+  async execute(input: unknown): Promise<IngredientAnalysisResult> {
     const request = this.validate(input);
     const eNumbers = this.extractENumbers(request.ingredients);
     const normalizedNames = this.buildNameCandidates(request.ingredients);

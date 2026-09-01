@@ -1,32 +1,43 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import {
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { AllowAnonymous, Session } from '@thallesp/nestjs-better-auth';
+import { Session } from '@thallesp/nestjs-better-auth';
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 import { billingEligibilityQuerySchema } from '@ingredia/contracts';
 import type {
   BillingEligibilityQuery,
   BillingEligibilityResponse,
   BillingPlansResponse,
+  CreateCheckoutSessionRequest,
+  CreateCheckoutSessionResponse,
+  RestoreMobilePurchasesRequest,
   UserSubscriptionResponse,
+  VerifyMobilePurchaseRequest,
+} from '@ingredia/contracts';
+import {
+  createCheckoutSessionSchema,
+  restoreMobilePurchasesSchema,
+  verifyMobilePurchaseSchema,
 } from '@ingredia/contracts';
 import type { BetterAuth } from '../../../../common/auth/better-auth.type';
 import { ContractValidationPipe } from '../../../../common/http/contract-validation.pipe';
 import { GetBillingEligibilityService } from '../../application/services/get-billing-eligibility.service';
 import { GetBillingPlansService } from '../../application/services/get-billing-plans.service';
 import { GetUserSubscriptionService } from '../../application/services/get-user-subscription.service';
+import { BillingPurchasesService } from '../../application/services/billing-purchases.service';
 
 @ApiTags('billing')
-@Controller('billing')
+@Controller(['billing', 'api/v1/billing'])
 export class BillingController {
   constructor(
     private readonly getEligibility: GetBillingEligibilityService,
     private readonly getPlans: GetBillingPlansService,
     private readonly getSubscription: GetUserSubscriptionService,
+    private readonly purchases: BillingPurchasesService,
   ) {}
 
   @Get('eligibility')
@@ -61,7 +72,6 @@ export class BillingController {
   }
 
   @Get('plans')
-  @AllowAnonymous()
   @ApiOperation({ summary: 'List public provider-neutral subscription plans' })
   @ApiOkResponse({
     schema: {
@@ -102,5 +112,32 @@ export class BillingController {
     @Session() session: UserSession<BetterAuth>,
   ): Promise<UserSubscriptionResponse> {
     return this.getSubscription.execute(session.user.id);
+  }
+
+  @Post('stripe/subscriptions')
+  createStripeSubscription(
+    @Session() session: UserSession<BetterAuth>,
+    @Body(new ContractValidationPipe(createCheckoutSessionSchema))
+    body: CreateCheckoutSessionRequest,
+  ): Promise<CreateCheckoutSessionResponse> {
+    return this.purchases.createStripeSubscription(session.user.id, body);
+  }
+
+  @Post('mobile-purchases/verify')
+  verifyMobilePurchase(
+    @Session() session: UserSession<BetterAuth>,
+    @Body(new ContractValidationPipe(verifyMobilePurchaseSchema))
+    body: VerifyMobilePurchaseRequest,
+  ): Promise<UserSubscriptionResponse> {
+    return this.purchases.verifyMobile(session.user.id, body);
+  }
+
+  @Post('restore')
+  restore(
+    @Session() session: UserSession<BetterAuth>,
+    @Body(new ContractValidationPipe(restoreMobilePurchasesSchema))
+    body: RestoreMobilePurchasesRequest,
+  ): Promise<UserSubscriptionResponse> {
+    return this.purchases.restore(session.user.id, body);
   }
 }

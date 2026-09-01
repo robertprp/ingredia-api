@@ -171,6 +171,8 @@ Each feature module owns its behavior and data access.
 
 ## Testing
 
+Do not implement, add, or generate tests unless the user explicitly asks for tests in the current request.
+
 Use the smallest test that gives confidence:
 
 - Domain unit tests: pure, fast tests for invariants, value objects, policies, and state transitions.

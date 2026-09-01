@@ -62,16 +62,15 @@ export class ApiExceptionFilter implements ExceptionFilter<object> {
   }
 
   private errorCode(status: number): ApiErrorCode {
-    if (status === HttpStatus.BAD_REQUEST) return ApiErrorCode.VALIDATION_ERROR;
-    if (status === HttpStatus.UNAUTHORIZED) return ApiErrorCode.UNAUTHENTICATED;
-    if (status === HttpStatus.FORBIDDEN) return ApiErrorCode.FORBIDDEN;
-    if (status === HttpStatus.NOT_FOUND) return ApiErrorCode.NOT_FOUND;
-    if (status === HttpStatus.CONFLICT) return ApiErrorCode.CONFLICT;
-    if (status === HttpStatus.TOO_MANY_REQUESTS) return ApiErrorCode.RATE_LIMITED;
-    if (status === HttpStatus.SERVICE_UNAVAILABLE) {
+    if (status === 400) return ApiErrorCode.VALIDATION_ERROR;
+    if (status === 401) return ApiErrorCode.UNAUTHENTICATED;
+    if (status === 403) return ApiErrorCode.FORBIDDEN;
+    if (status === 404) return ApiErrorCode.NOT_FOUND;
+    if (status === 409) return ApiErrorCode.CONFLICT;
+    if (status === 429) return ApiErrorCode.RATE_LIMITED;
+    if (status === 503) {
       return ApiErrorCode.SERVICE_UNAVAILABLE;
     }
     return ApiErrorCode.INTERNAL_ERROR;
   }
 }
-

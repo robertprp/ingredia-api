@@ -131,17 +131,24 @@ docker run --name aditivos-postgres \
 Never commit `.env` or real credentials. Keep only empty or clearly fake values
 in `.env.example`.
 
-| Variable               | Purpose                                  |
-| ---------------------- | ---------------------------------------- |
-| `DATABASE_URL`         | PostgreSQL connection string             |
-| `BETTER_AUTH_SECRET`   | Random secret of at least 32 characters  |
-| `BETTER_AUTH_BASE_URL` | Public base URL of this API              |
-| `APP_NAME`             | Application name used by Better Auth     |
-| `PORT`                 | Optional HTTP port; defaults to `3000`   |
-| `RESEND_API_KEY`       | Required by the included email callbacks |
-| `GOOGLE_CLIENT_ID`     | Required if Google sign-in is enabled    |
-| `GOOGLE_CLIENT_SECRET` | Required if Google sign-in is enabled    |
-| `BILLING_SEED_USER_ID` | Optional user for a sandbox Plus seed    |
+| Variable                       | Purpose                                          |
+| ------------------------------ | ------------------------------------------------ |
+| `DATABASE_URL`                 | PostgreSQL connection string                     |
+| `BETTER_AUTH_SECRET`           | Random secret of at least 32 characters          |
+| `BETTER_AUTH_BASE_URL`         | Public base URL of this API                      |
+| `APP_NAME`                     | Application name used by Better Auth             |
+| `PORT`                         | Optional HTTP port; defaults to `3000`           |
+| `RESEND_API_KEY`               | Required by the included email callbacks         |
+| `GOOGLE_CLIENT_ID`             | Required if Google sign-in is enabled            |
+| `GOOGLE_CLIENT_SECRET`         | Required if Google sign-in is enabled            |
+| `BILLING_SEED_USER_ID`         | Optional user for a sandbox Plus seed            |
+| `GOOGLE_CLOUD_PROJECT`         | Google Cloud project used by Vision OCR          |
+| `GOOGLE_CLOUD_VISION_ENDPOINT` | Vision API endpoint; defaults to the EU endpoint |
+| `GOOGLE_CLOUD_VISION_API_KEY`  | Server-side key restricted to Cloud Vision       |
+| `PPQ_API_KEY`                  | Required by the additive research CLI job        |
+| `PPQ_BASE_URL`                 | PPQ API base URL; defaults to `api.ppq.ai`       |
+| `PPQ_MODEL`                    | PPQ research model; defaults to Sonar Pro        |
+| `PPQ_TIMEOUT_MS`               | Per-request timeout for PPQ research             |
 
 Add variables for optional plugins only when those plugins are enabled. Validate
 all required variables at startup and do not use fallback secrets in deployed
@@ -259,6 +266,29 @@ rewrite/verify imported text before public redistribution; both sites identify
 their content as protected. Re-running the importer is idempotent and records
 an ingestion run with per-source failures for review.
 
+After the website import, run the one-shot PPQ.ai research indexer to fill
+unknown pregnancy guidance and other incomplete catalog fields from live web
+research:
+
+```bash
+PPQ_API_KEY=your-key pnpm enrich:additives
+```
+
+The job uses PPQ's Responses API with mandatory web search and structured JSON
+output. It prefers regulatory, public-health, teratology, and peer-reviewed
+sources; stores the model, PPQ response ID, and direct evidence URLs; and never
+turns missing or ambiguous pregnancy evidence into `SUITABLE`. Existing complete
+fields and `REVIEWED` additives are preserved by default. Useful bounded runs:
+
+```bash
+pnpm enrich:additives --limit=25 --concurrency=2
+pnpm enrich:additives --code=E202
+pnpm enrich:additives --code=E202 --refresh
+```
+
+`--refresh` intentionally permits replacement of existing generated values, but
+all researched content remains `REVIEW_REQUIRED` until editorial/clinical review.
+
 Analyze text produced by a camera/OCR pipeline or copied from a label:
 
 ```http
@@ -300,6 +330,56 @@ pnpm db:seed
 
 Set `BILLING_SEED_USER_ID` to an existing Better Auth user ID when a renewable
 sandbox Plus subscription is also needed for local testing.
+
+## Mobile API v1
+
+The application API is exposed under `/api/v1`. The additive catalog routes are
+anonymous; scans, analyses, preferences, entitlements, comparisons, account
+deletion, and billing routes require a Better Auth session. Provider webhooks
+are anonymous at the HTTP layer and authenticate the provider payload instead.
+
+```text
+GET    /api/v1/additives
+GET    /api/v1/additives/:code
+POST   /api/v1/scans
+GET    /api/v1/scans/:scanId
+GET    /api/v1/analyses
+GET    /api/v1/analyses/:analysisId
+PATCH  /api/v1/analyses/:analysisId/saved
+DELETE /api/v1/analyses/:analysisId
+POST   /api/v1/comparisons
+GET    /api/v1/me/preferences
+PATCH  /api/v1/me/preferences
+GET    /api/v1/me/entitlements
+POST   /api/v1/me/account-deletion
+GET    /api/v1/billing/eligibility
+GET    /api/v1/billing/plans
+GET    /api/v1/billing/subscription
+POST   /api/v1/billing/stripe/subscriptions
+POST   /api/v1/billing/mobile-purchases/verify
+POST   /api/v1/billing/restore
+POST   /api/v1/webhooks/stripe
+POST   /api/v1/webhooks/app-store
+POST   /api/v1/webhooks/google-play
+```
+
+`POST /api/v1/scans` accepts multipart form data with an `image` file and an
+optional `productName`. The image is limited to 8 MB and is sent transiently to
+Google Cloud Vision; it is not stored in PostgreSQL. JPEG, PNG, WebP, HEIC, and
+HEIF uploads are accepted. HEIC and HEIF images are converted transiently to
+JPEG before OCR. Configure
+`GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_VISION_API_KEY`. The API key must be
+restricted to `vision.googleapis.com` and supplied to the container as an
+environment variable or container secret; do not commit it.
+
+Stripe uses the provider API directly. Apple and Google Play verification are
+routed through trusted server-side verifier services configured with
+`APPLE_VERIFIER_URL` / `GOOGLE_PLAY_VERIFIER_URL` and their API keys. Those
+services must validate signed store data against Apple or Google and return the
+normalized provider state expected by the billing adapter. If a verifier or
+provider secret is absent, purchases fail closed and no entitlement is written.
+Seed provider product references with the corresponding `*_PRODUCT_ID` or
+Stripe price ID environment variables.
 
 ## Project layout
 

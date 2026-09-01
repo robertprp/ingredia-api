@@ -8,6 +8,7 @@ import { BillingRepositoryPort } from '../../application/ports/billing.repositor
 import { PurchaseOwnedByAnotherUserError } from '../../domain/billing.errors';
 import {
   BillingPlan,
+  BillingProductReference,
   BillingSubscription,
   SubscriptionEnvironment,
   SubscriptionProvider,
@@ -22,6 +23,14 @@ export class PrismaBillingRepository implements BillingRepositoryPort {
     const plans = await this.prisma.billingPlan.findMany({
       where: { isPublic: true },
       orderBy: [{ billingPeriod: 'asc' }, { id: 'asc' }],
+      include: {
+        productReferences: {
+          where: {
+            environment:
+              process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX',
+          },
+        },
+      },
     });
     return plans.map((plan) => this.toPlan(plan));
   }
@@ -127,7 +136,69 @@ export class PrismaBillingRepository implements BillingRepositoryPort {
     }
   }
 
-  private toPlan(plan: PrismaBillingPlan): BillingPlan {
+  async getMonthlyScanUsage(
+    userId: string,
+    periodStart: Date,
+  ): Promise<number> {
+    const usage = await this.prisma.scanUsage.findUnique({
+      where: { userId_periodStart: { userId, periodStart } },
+      select: { consumed: true },
+    });
+    return usage?.consumed ?? 0;
+  }
+
+  async findProductReference(
+    planId: string,
+    provider: SubscriptionProvider,
+    environment: SubscriptionEnvironment,
+  ): Promise<BillingProductReference | null> {
+    return this.prisma.billingProductReference.findUnique({
+      where: { planId_provider_environment: { planId, provider, environment } },
+      select: {
+        planId: true,
+        provider: true,
+        environment: true,
+        productId: true,
+      },
+    });
+  }
+
+  async claimWebhookEvent(input: {
+    id: string;
+    provider: SubscriptionProvider;
+    payloadHash: string;
+  }): Promise<boolean> {
+    try {
+      await this.prisma.billingWebhookEvent.create({ data: input });
+      return true;
+    } catch (error: unknown) {
+      if (this.isUniqueConstraintError(error)) {
+        const existing = await this.prisma.billingWebhookEvent.findUnique({
+          where: { id: input.id },
+          select: { processedAt: true, payloadHash: true },
+        });
+        return (
+          existing !== null &&
+          existing.processedAt === null &&
+          existing.payloadHash === input.payloadHash
+        );
+      }
+      throw error;
+    }
+  }
+
+  async completeWebhookEvent(id: string): Promise<void> {
+    await this.prisma.billingWebhookEvent.update({
+      where: { id },
+      data: { processedAt: new Date() },
+    });
+  }
+
+  private toPlan(
+    plan: PrismaBillingPlan & {
+      productReferences?: BillingProductReference[];
+    },
+  ): BillingPlan {
     return {
       id: plan.id,
       name: plan.name,
@@ -139,6 +210,7 @@ export class PrismaBillingRepository implements BillingRepositoryPort {
       currency: plan.currency,
       isPublic: plan.isPublic,
       isPurchasable: plan.isPurchasable,
+      productReferences: plan.productReferences ?? [],
     };
   }
 

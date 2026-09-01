@@ -8,20 +8,109 @@ datasource db {
 }
 
 model User {
-  id                  String                @id
+  id                  String                  @id
   name                String
-  email               String                @unique
-  emailVerified       Boolean               @default(false)
+  email               String                  @unique
+  emailVerified       Boolean                 @default(false)
   image               String?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  username            String?               @unique
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  username            String?                 @unique
   displayUsername     String?
   accounts            Account[]
+  accountDeletion     accountDeletionRequest?
+  analyses            analysis[]
   billingSubscription billingSubscription[]
+  comparisons         comparison[]
+  scans               scan[]
+  scanUsage           scanUsage[]
   sessions            Session[]
+  preference          userPreference?
 
   @@map("user")
+}
+
+model userPreference {
+  userId        String   @id
+  pregnancyMode Boolean  @default(false)
+  riskAlerts    Boolean  @default(true)
+  locale        String   @default("es-ES")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model scanUsage {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String
+  periodStart DateTime @db.Date
+  consumed    Int      @default(0)
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, periodStart])
+}
+
+model scan {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String
+  status           scanStatus @default(UPLOADED)
+  imageMimeType    String
+  imageSize        Int
+  productName      String?
+  ingredientsText  String?
+  ocrConfidence    Float?
+  failureCode      String?
+  failureMessage   String?
+  failureRetryable Boolean?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  analysis         analysis?
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model analysis {
+  id                      String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                  String
+  scanId                  String                @unique @db.Uuid
+  productName             String
+  ingredientsText         String
+  overallRisk             productRiskLevel
+  pregnancyRisk           analysisPregnancyRisk
+  summary                 String
+  detectedAdditives       Json
+  unrecognizedIngredients Json
+  pregnancyModeApplied    Boolean               @default(false)
+  saved                   Boolean               @default(false)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  scan                    scan                  @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  user                    User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, saved, createdAt])
+}
+
+model comparison {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String
+  leftAnalysisId        String   @db.Uuid
+  rightAnalysisId       String   @db.Uuid
+  recommendedAnalysisId String?  @db.Uuid
+  reason                String
+  createdAt             DateTime @default(now())
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model accountDeletionRequest {
+  userId      String   @id
+  requestedAt DateTime @default(now())
+  scheduledAt DateTime
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Session {
@@ -136,6 +225,9 @@ model additiveSourceRecord {
   sourceClassification String?
   pregnancySuitability pregnancySuitability @default(UNKNOWN)
   pregnancyRationale   String
+  evidenceUrls         String[]             @default([])
+  researchModel        String?
+  externalRecordId     String?
   contentHash          String
   fetchedAt            DateTime
   lastSeenAt           DateTime
@@ -149,21 +241,46 @@ model additiveSourceRecord {
 }
 
 model billingPlan {
-  id                  String                @id(map: "billing_plan_pkey")
+  id                  String                    @id(map: "billing_plan_pkey")
   name                String
   billingPeriod       billingPeriod
-  trialDays           Int                   @default(0)
+  trialDays           Int                       @default(0)
   capabilities        String[]
   monthlyScanLimit    Int?
   amountMinor         Int?
-  currency            String?               @db.Char(3)
-  isPublic            Boolean               @default(false)
-  isPurchasable       Boolean               @default(false)
-  createdAt           DateTime              @default(now())
+  currency            String?                   @db.Char(3)
+  isPublic            Boolean                   @default(false)
+  isPurchasable       Boolean                   @default(false)
+  createdAt           DateTime                  @default(now())
   updatedAt           DateTime
+  productReferences   billingProductReference[]
   billingSubscription billingSubscription[]
 
   @@index([isPublic], map: "billing_plan_is_public_idx")
+}
+
+model billingProductReference {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planId      String
+  provider    billingProvider
+  environment billingEnvironment
+  productId   String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  billingPlan billingPlan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, environment, productId])
+  @@unique([planId, provider, environment])
+}
+
+model billingWebhookEvent {
+  id          String          @id
+  provider    billingProvider
+  payloadHash String
+  receivedAt  DateTime        @default(now())
+  processedAt DateTime?
+
+  @@index([provider, receivedAt])
 }
 
 model billingSubscription {
@@ -256,4 +373,27 @@ enum toxicityLevel {
   MEDIUM
   HIGH
   VERY_HIGH
+}
+
+enum scanStatus {
+  UPLOADED
+  PROCESSING
+  COMPLETED
+  NEEDS_REVIEW
+  FAILED
+}
+
+enum productRiskLevel {
+  LOW
+  CAUTION
+  HIGH
+  VERY_HIGH
+  INSUFFICIENT_EVIDENCE
+}
+
+enum analysisPregnancyRisk {
+  SUITABLE
+  CAUTION
+  NOT_SUITABLE
+  INSUFFICIENT_EVIDENCE
 }

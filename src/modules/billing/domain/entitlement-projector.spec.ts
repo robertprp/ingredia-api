@@ -73,6 +73,7 @@ describe('entitlement projection', () => {
       currency: null,
       isPublic: true,
       isPurchasable: false,
+      productReferences: [],
     };
 
     expect(projectEntitlements(plan)).toEqual({

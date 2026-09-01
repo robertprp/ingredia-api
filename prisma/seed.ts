@@ -27,7 +27,7 @@ async function seed(): Promise<void> {
     where: { id: 'free' },
     update: {
       name: 'Free',
-      monthlyScanLimit: 0,
+      monthlyScanLimit: 5,
       capabilities: [],
     },
     create: {
@@ -35,7 +35,7 @@ async function seed(): Promise<void> {
       name: 'Free',
       billingPeriod: 'MONTHLY',
       trialDays: 0,
-      monthlyScanLimit: 0,
+      monthlyScanLimit: 5,
       capabilities: [],
       isPublic: false,
       isPurchasable: false,
@@ -44,7 +44,7 @@ async function seed(): Promise<void> {
   });
 
   await prisma.billingPlan.upsert({
-    where: { id: 'plus-monthly' },
+    where: { id: 'INGREDIA_PLUS_MONTHLY' },
     update: {
       name: 'Plus',
       capabilities: [
@@ -55,7 +55,7 @@ async function seed(): Promise<void> {
       ],
     },
     create: {
-      id: 'plus-monthly',
+      id: 'INGREDIA_PLUS_MONTHLY',
       name: 'Plus',
       billingPeriod: 'MONTHLY',
       trialDays: 0,
@@ -72,6 +72,52 @@ async function seed(): Promise<void> {
       isPurchasable: false,
       updatedAt: new Date(),
     },
+  });
+
+  const references = [
+    {
+      provider: 'STRIPE' as const,
+      productId: process.env.STRIPE_PLUS_MONTHLY_PRICE_ID,
+    },
+    {
+      provider: 'APPLE' as const,
+      productId: process.env.APPLE_PLUS_MONTHLY_PRODUCT_ID,
+    },
+    {
+      provider: 'GOOGLE_PLAY' as const,
+      productId: process.env.GOOGLE_PLAY_PLUS_MONTHLY_PRODUCT_ID,
+    },
+  ].filter(
+    (
+      reference,
+    ): reference is {
+      provider: 'STRIPE' | 'APPLE' | 'GOOGLE_PLAY';
+      productId: string;
+    } => Boolean(reference.productId),
+  );
+  for (const reference of references) {
+    await prisma.billingProductReference.upsert({
+      where: {
+        planId_provider_environment: {
+          planId: 'INGREDIA_PLUS_MONTHLY',
+          provider: reference.provider,
+          environment:
+            process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX',
+        },
+      },
+      update: { productId: reference.productId },
+      create: {
+        planId: 'INGREDIA_PLUS_MONTHLY',
+        provider: reference.provider,
+        environment:
+          process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX',
+        productId: reference.productId,
+      },
+    });
+  }
+  await prisma.billingPlan.update({
+    where: { id: 'INGREDIA_PLUS_MONTHLY' },
+    data: { isPurchasable: references.length > 0 },
   });
 
   const userId = process.env['BILLING_SEED_USER_ID'];
@@ -107,7 +153,7 @@ async function seed(): Promise<void> {
     },
     create: {
       userId,
-      planId: 'plus-monthly',
+      planId: 'INGREDIA_PLUS_MONTHLY',
       provider: 'STRIPE',
       environment: 'SANDBOX',
       externalPurchaseId: `seed:${userId}`,

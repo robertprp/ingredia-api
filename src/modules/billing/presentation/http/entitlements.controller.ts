@@ -7,7 +7,7 @@ import type { BetterAuth } from '../../../../common/auth/better-auth.type';
 import { GetUserEntitlementsService } from '../../application/services/get-user-entitlements.service';
 
 @ApiTags('billing')
-@Controller('me')
+@Controller(['me', 'api/v1/me'])
 export class EntitlementsController {
   constructor(private readonly getEntitlements: GetUserEntitlementsService) {}
 

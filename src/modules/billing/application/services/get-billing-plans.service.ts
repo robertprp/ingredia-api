@@ -1,5 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { BillingPlan as BillingPlanResponse } from '@ingredia/contracts';
+import {
+  BillingPlan as BillingPlanResponse,
+  SubscriptionProvider,
+} from '@ingredia/contracts';
 import { BILLING_REPOSITORY } from '../ports/billing.repository.port';
 import type { BillingRepositoryPort } from '../ports/billing.repository.port';
 
@@ -23,7 +26,12 @@ export class GetBillingPlansService {
       billingPeriod: plan.billingPeriod,
       trialDays: plan.trialDays,
       capabilities: [...plan.capabilities],
-      purchasable: plan.isPurchasable && plan.amountMinor !== null,
+      purchasable:
+        plan.isPurchasable && (plan.productReferences?.length ?? 0) > 0,
+      providerReferences: (plan.productReferences ?? []).map((reference) => ({
+        provider: SubscriptionProvider[reference.provider],
+        productId: reference.productId,
+      })),
     }));
   }
 

@@ -8,6 +8,8 @@ import { createAuth } from './common/auth/auth.instance';
 import { HealthModule } from './modules/health/health.module';
 import { AdditivesModule } from './modules/additives/additives.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { PreferencesModule } from './modules/preferences/preferences.module';
+import { AnalysesModule } from './modules/analyses/analyses.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { BillingModule } from './modules/billing/billing.module';
     HealthModule,
     AdditivesModule,
     BillingModule,
+    PreferencesModule,
+    AnalysesModule,
     AuthModule.forRootAsync({
       imports: [PrismaModule],
       inject: [PrismaService],

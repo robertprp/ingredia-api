@@ -230,6 +230,9 @@ export interface SavedAnalysisResponse {
     analysisId: AnalysisId;
     saved: boolean;
 }
+export interface UpdateSavedAnalysisRequest {
+    saved: boolean;
+}
 export interface SearchAdditivesQuery extends CursorPageRequest {
     q?: string;
     category?: string;
@@ -331,6 +334,10 @@ export interface BillingPlan {
     trialDays: number;
     capabilities: string[];
     purchasable: boolean;
+    providerReferences: {
+        provider: SubscriptionProvider;
+        productId: string;
+    }[];
 }
 export interface BillingPlansResponse {
     plans: BillingPlan[];
@@ -373,7 +380,7 @@ export interface CreateBillingPortalSessionResponse {
 }
 export interface VerifyMobilePurchaseRequest {
     provider: SubscriptionProvider.APPLE | SubscriptionProvider.GOOGLE_PLAY;
-    productId: string;
+    planId: string;
     transactionToken: string;
 }
 export interface RestoreMobilePurchasesRequest {
@@ -531,6 +538,7 @@ export type ListUserAnalysesQuery = z.infer<typeof listUserAnalysesSchema>;
 export declare const searchAdditivesSchema: z.ZodType<SearchAdditivesQuery>;
 export declare const updateUserPreferencesSchema: z.ZodType<UpdateUserPreferencesRequest>;
 export declare const createComparisonSchema: z.ZodType<CreateComparisonRequest>;
+export declare const updateSavedAnalysisSchema: z.ZodType<UpdateSavedAnalysisRequest>;
 export declare const updateUserProfileSchema: z.ZodType<UpdateUserProfileRequest>;
 export declare const registerDeviceSchema: z.ZodType<RegisterDeviceRequest>;
 export declare const createDataExportSchema: z.ZodType<CreateDataExportRequest>;

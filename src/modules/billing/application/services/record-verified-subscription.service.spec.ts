@@ -49,6 +49,22 @@ class FakeBillingRepository implements BillingRepositoryPort {
       updatedAt: new Date('2026-08-31T00:00:00.000Z'),
     });
   }
+
+  getMonthlyScanUsage(): Promise<number> {
+    return Promise.resolve(0);
+  }
+
+  findProductReference(): Promise<null> {
+    return Promise.resolve(null);
+  }
+
+  claimWebhookEvent(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+
+  completeWebhookEvent(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 describe(RecordVerifiedSubscriptionService.name, () => {

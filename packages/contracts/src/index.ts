@@ -267,6 +267,10 @@ export interface SavedAnalysisResponse {
   saved: boolean;
 }
 
+export interface UpdateSavedAnalysisRequest {
+  saved: boolean;
+}
+
 export interface SearchAdditivesQuery extends CursorPageRequest {
   q?: string;
   category?: string;
@@ -383,6 +387,10 @@ export interface BillingPlan {
   trialDays: number;
   capabilities: string[];
   purchasable: boolean;
+  providerReferences: {
+    provider: SubscriptionProvider;
+    productId: string;
+  }[];
 }
 
 export interface BillingPlansResponse {
@@ -434,7 +442,7 @@ export interface CreateBillingPortalSessionResponse {
 
 export interface VerifyMobilePurchaseRequest {
   provider: SubscriptionProvider.APPLE | SubscriptionProvider.GOOGLE_PLAY;
-  productId: string;
+  planId: string;
   transactionToken: string;
 }
 
@@ -671,6 +679,9 @@ export const createComparisonSchema: z.ZodType<CreateComparisonRequest> =
       .refine(([left, right]) => left !== right, 'Analyses must be different'),
   });
 
+export const updateSavedAnalysisSchema: z.ZodType<UpdateSavedAnalysisRequest> =
+  z.object({ saved: z.boolean() });
+
 export const updateUserProfileSchema: z.ZodType<UpdateUserProfileRequest> = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
@@ -725,7 +736,7 @@ export const verifyMobilePurchaseSchema: z.ZodType<VerifyMobilePurchaseRequest> 
       SubscriptionProvider.APPLE,
       SubscriptionProvider.GOOGLE_PLAY,
     ]),
-    productId: z.string().trim().min(1).max(200),
+    planId: z.string().trim().min(1).max(200),
     transactionToken: z.string().trim().min(1).max(16_384),
   });
 

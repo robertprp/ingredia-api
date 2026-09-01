@@ -19,12 +19,14 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/e2e/jest-e2e.json",
     "db:seed": "tsx prisma/seed.ts",
-    "index:additives": "tsx src/commands/index-additives.ts"
+    "index:additives": "tsx src/commands/index-additives.ts",
+    "enrich:additives": "tsx src/commands/enrich-additives.ts"
   },
   "dependencies": {
-    "@ingredia/contracts": "workspace:*",
     "@better-auth/expo": "^1.7.2",
     "@better-auth/infra": "^0.4.3",
+    "@google-cloud/vision": "^6.0.0",
+    "@ingredia/contracts": "workspace:*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -36,6 +38,7 @@
     "@thallesp/nestjs-better-auth": "^2.7.0",
     "better-auth": "^1.4.15",
     "cheerio": "^1.2.0",
+    "heic-convert": "^2.1.0",
     "pg": "^8.17.1",
     "reflect-metadata": "^0.2.2",
     "resend": "^6.24.0",
@@ -66,6 +69,7 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.23.13",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },

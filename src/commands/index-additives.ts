@@ -1,12 +1,15 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../app.module';
+import { AdditivesCommandModule } from './additives-command.module';
 import { ImportAdditivesService } from '../modules/additives/application/services/import-additives.service';
 
 async function run(): Promise<void> {
-  const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ['error', 'warn', 'log'],
-  });
+  const app = await NestFactory.createApplicationContext(
+    AdditivesCommandModule,
+    {
+      logger: ['error', 'warn', 'log'],
+    },
+  );
   try {
     const sourceKey = process.argv[2];
     const results = await app.get(ImportAdditivesService).importAll(sourceKey);

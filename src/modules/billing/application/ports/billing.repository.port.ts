@@ -1,4 +1,5 @@
 import {
+  BillingProductReference,
   BillingPlan,
   BillingSubscription,
   SubscriptionEnvironment,
@@ -20,4 +21,16 @@ export interface BillingRepositoryPort {
   saveVerifiedSubscription(
     input: VerifiedSubscriptionInput,
   ): Promise<BillingSubscription>;
+  getMonthlyScanUsage(userId: string, periodStart: Date): Promise<number>;
+  findProductReference(
+    planId: string,
+    provider: SubscriptionProvider,
+    environment: SubscriptionEnvironment,
+  ): Promise<BillingProductReference | null>;
+  claimWebhookEvent(input: {
+    id: string;
+    provider: SubscriptionProvider;
+    payloadHash: string;
+  }): Promise<boolean>;
+  completeWebhookEvent(id: string): Promise<void>;
 }

@@ -32,6 +32,18 @@ export class GetUserEntitlementsService {
     userId: string,
     now = new Date(),
   ): Promise<EntitlementsResponse> {
+    return (await this.resolve(userId, now)).entitlements;
+  }
+
+  async resolve(
+    userId: string,
+    now = new Date(),
+  ): Promise<{
+    entitlements: EntitlementsResponse;
+    monthlyLimit: number | null;
+    consumed: number;
+    periodStart: Date;
+  }> {
     const subscriptions =
       await this.repository.findSubscriptionsForUser(userId);
     const entitledSubscription = selectEntitledSubscription(subscriptions, now);
@@ -40,6 +52,19 @@ export class GetUserEntitlementsService {
       : ((await this.repository.findPlanById('free')) ??
         CONSERVATIVE_FREE_PLAN);
 
-    return projectEntitlements(plan ?? CONSERVATIVE_FREE_PLAN);
+    const effectivePlan = plan ?? CONSERVATIVE_FREE_PLAN;
+    const periodStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    const consumed = await this.repository.getMonthlyScanUsage(
+      userId,
+      periodStart,
+    );
+    return {
+      entitlements: projectEntitlements(effectivePlan, consumed),
+      monthlyLimit: effectivePlan.monthlyScanLimit,
+      consumed,
+      periodStart,
+    };
   }
 }

@@ -1,7 +1,9 @@
 import { NestFactory } from '@nestjs/core';
+import { Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { json } from 'express';
+import { ApiExceptionFilter } from './common/http/api-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -9,6 +11,18 @@ async function bootstrap() {
   });
 
   app.use('/additives', json({ limit: '16kb' }));
+  app.use('/billing', json({ limit: '64kb' }));
+  app.use(
+    '/api/v1',
+    json({
+      limit: '256kb',
+      verify: (request, _response, buffer) => {
+        (request as typeof request & { rawBody?: Buffer }).rawBody =
+          Buffer.from(buffer);
+      },
+    }),
+  );
+  app.useGlobalFilters(new ApiExceptionFilter());
   app.enableShutdownHooks();
 
   app.enableCors({
@@ -29,6 +43,6 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, documentFactory); // /api to get swagger document
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap()
-  .then(() => console.log('Listening on port 3000'))
-  .catch((err) => console.log(err));
+void bootstrap()
+  .then(() => Logger.log('API is listening.', 'Bootstrap'))
+  .catch((error: unknown) => Logger.error(error, 'Bootstrap'));
