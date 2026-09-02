@@ -5,9 +5,12 @@
 !.env.example
 .pnpm-store
 node_modules
+**/node_modules
 dist
+**/dist
 coverage
 test
+repomix-output*.txt
 *.log
 .DS_Store
 .idea
